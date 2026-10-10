@@ -1118,6 +1118,17 @@ namespace Asynchronous
                                         txtManualUpdateResult.Text = string.Format("🎉 A new update (v{0}) is available! Click 'Download Update' above.", cleanVer);
                                         txtManualUpdateResult.Foreground = EmeraldGreen;
                                     }
+
+                                    var res = MessageBox.Show(
+                                        string.Format("A new version of asynchronous (v{0}) is available!\n\nYour current version remains fully compatible to connect.\nWould you like to open the download page?", cleanVer),
+                                        "asynchronous - Update Available",
+                                        MessageBoxButton.YesNo,
+                                        MessageBoxImage.Information);
+
+                                    if (res == MessageBoxResult.Yes)
+                                    {
+                                        try { Process.Start(releaseUrl); } catch { }
+                                    }
                                 }));
                             }
                             else if (isManualCheck)
@@ -1283,8 +1294,15 @@ namespace Asynchronous
 
             string relay = txtRelayHost != null ? txtRelayHost.Text.Trim() : settings.RelayHost;
             string port = txtControlPort != null ? txtControlPort.Text.Trim() : settings.ControlPort;
+            string dataPort = txtDataPort != null ? txtDataPort.Text.Trim() : settings.RelayPort;
             string devId = settings.DeviceId;
             string pin = settings.Password;
+
+            // Automatically ensure built-in relay is running when connecting to 127.0.0.1
+            if (relay == "127.0.0.1" || relay == "localhost")
+            {
+                EnsureRelayRunning(port, dataPort);
+            }
 
             var psi = new ProcessStartInfo()
             {
@@ -1630,22 +1648,40 @@ namespace Asynchronous
             });
         }
 
-        private void ToggleBuiltInRelay()
+        private void EnsureRelayRunning(string cPort, string rPort)
         {
-            if (relayProcess != null && !relayProcess.HasExited)
+            try
             {
-                try { relayProcess.Kill(); } catch { }
-                relayProcess = null;
-                btnToggleLocalRelay.Content = "🌐  Start Built-in Relay Server";
-                btnToggleLocalRelay.Background = CyanBlue;
-                txtLocalRelayStatus.Text = "Relay Status: Stopped";
-                return;
+                bool isPortOpen = false;
+                try
+                {
+                    using (var tcp = new TcpClient())
+                    {
+                        var ar = tcp.BeginConnect("127.0.0.1", int.Parse(cPort), null, null);
+                        isPortOpen = ar.AsyncWaitHandle.WaitOne(300);
+                        if (isPortOpen) tcp.EndConnect(ar);
+                    }
+                }
+                catch { isPortOpen = false; }
+
+                if (!isPortOpen)
+                {
+                    AppendHostLog("Local relay not detected. Starting built-in relay automatically...");
+                    StartBuiltInRelay();
+                    Thread.Sleep(700);
+                }
             }
+            catch { }
+        }
+
+        private void StartBuiltInRelay()
+        {
+            if (relayProcess != null && !relayProcess.HasExited) return;
 
             string engineJs = FindEngineScript();
             string nodeExe = FindNodeExecutable();
-            string cPort = txtControlPort.Text.Trim();
-            string rPort = txtDataPort.Text.Trim();
+            string cPort = txtControlPort != null ? txtControlPort.Text.Trim() : settings.ControlPort;
+            string rPort = txtDataPort != null ? txtDataPort.Text.Trim() : settings.RelayPort;
 
             var psi = new ProcessStartInfo()
             {
@@ -1660,14 +1696,35 @@ namespace Asynchronous
             try
             {
                 relayProcess = Process.Start(psi);
-                btnToggleLocalRelay.Content = "🛑  Stop Built-in Relay Server";
-                btnToggleLocalRelay.Background = RoseRed;
-                txtLocalRelayStatus.Text = string.Format("Relay Status: Running on Ports {0} & {1}", cPort, rPort);
+                if (btnToggleLocalRelay != null)
+                {
+                    btnToggleLocalRelay.Content = "🛑  Stop Built-in Relay Server";
+                    btnToggleLocalRelay.Background = RoseRed;
+                }
+                if (txtLocalRelayStatus != null)
+                {
+                    txtLocalRelayStatus.Text = string.Format("Relay Status: Running on Ports {0} & {1}", cPort, rPort);
+                }
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Could not start local relay: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                AppendHostLog("Could not start built-in relay: " + ex.Message);
             }
+        }
+
+        private void ToggleBuiltInRelay()
+        {
+            if (relayProcess != null && !relayProcess.HasExited)
+            {
+                try { relayProcess.Kill(); } catch { }
+                relayProcess = null;
+                btnToggleLocalRelay.Content = "🌐  Start Built-in Relay Server";
+                btnToggleLocalRelay.Background = CyanBlue;
+                txtLocalRelayStatus.Text = "Relay Status: Stopped";
+                return;
+            }
+
+            StartBuiltInRelay();
         }
 
         private void SaveCurrentSettings()
