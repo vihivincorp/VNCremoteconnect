@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
@@ -15,9 +15,113 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using Path = System.IO.Path;
 
-
 namespace VNCRemoteConnect
 {
+    // =======================================================================
+    // PERSISTENT SETTINGS MODEL
+    // =======================================================================
+    public class AppSettings
+    {
+        public string DeviceId { get; set; }
+        public string Password { get; set; }
+        public string RelayHost { get; set; }
+        public string ControlPort { get; set; }
+        public string RelayPort { get; set; }
+        public bool UseTls { get; set; }
+        public string LastTargetId { get; set; }
+        public string LastTargetPassword { get; set; }
+        public string Quality { get; set; }
+        public bool AutoStartHost { get; set; }
+
+        public AppSettings()
+        {
+            RelayHost = "127.0.0.1";
+            ControlPort = "8443";
+            RelayPort = "8444";
+            UseTls = true;
+            LastTargetId = "";
+            LastTargetPassword = "";
+            Quality = "balanced";
+            AutoStartHost = true;
+        }
+
+        public static string GetSettingsPath()
+        {
+            try
+            {
+                string localPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
+                if (File.Exists(localPath)) return localPath;
+
+                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                string dir = Path.Combine(appData, "VNCremoteconnect");
+                if (!Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+                return Path.Combine(dir, "settings.json");
+            }
+            catch
+            {
+                return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
+            }
+        }
+
+        public static AppSettings Load()
+        {
+            try
+            {
+                string path = GetSettingsPath();
+                if (File.Exists(path))
+                {
+                    string jsonStr = File.ReadAllText(path, Encoding.UTF8);
+                    var js = new JavaScriptSerializer();
+                    var loaded = js.Deserialize<AppSettings>(jsonStr);
+                    if (loaded != null && !string.IsNullOrEmpty(loaded.DeviceId) && !string.IsNullOrEmpty(loaded.Password))
+                    {
+                        return loaded;
+                    }
+                }
+            }
+            catch { }
+
+            var created = new AppSettings();
+            created.DeviceId = GeneratePermanentDeviceId();
+            created.Password = GeneratePermanentPassword();
+            created.Save();
+            return created;
+        }
+
+        public void Save()
+        {
+            try
+            {
+                string path = GetSettingsPath();
+                var js = new JavaScriptSerializer();
+                string jsonStr = js.Serialize(this);
+                File.WriteAllText(path, jsonStr, Encoding.UTF8);
+            }
+            catch { }
+        }
+
+        public static string GeneratePermanentDeviceId()
+        {
+            var r = new Random();
+            int n1 = r.Next(100, 999);
+            int n2 = r.Next(100, 999);
+            int n3 = r.Next(100, 999);
+            return string.Format("{0}-{1}-{2}", n1, n2, n3);
+        }
+
+        public static string GeneratePermanentPassword()
+        {
+            var r = new Random();
+            return r.Next(100000, 999999).ToString();
+        }
+    }
+
+    // =======================================================================
+    // MAIN APPLICATION WINDOW
+    // =======================================================================
     public class MainWindow : Window
     {
         // Colors & Brushes (Curated Dark Slate & Indigo Palette)
@@ -37,11 +141,13 @@ namespace VNCRemoteConnect
         private static readonly Brush AmberYellow = new SolidColorBrush(Color.FromRgb(245, 158, 11));  // #F59E0B
         private static readonly Brush CyanBlue = new SolidColorBrush(Color.FromRgb(6, 182, 212));      // #06B6D4
 
-        // Active State
+        // State & Settings
+        private AppSettings settings;
         private Process hostProcess = null;
         private Process viewerProcess = null;
         private Process relayProcess = null;
         private JavaScriptSerializer json = new JavaScriptSerializer();
+        private bool isHostManuallyPaused = false;
 
         // UI Controls - Navigation
         private Button tabHostBtn;
@@ -56,8 +162,8 @@ namespace VNCRemoteConnect
         private Ellipse statusDot;
 
         // UI Controls - Host Tab
-        private TextBlock txtMyDeviceId;
-        private TextBox txtMyPin;
+        private TextBox txtMyDeviceId;
+        private TextBox txtMyPassword;
         private Button btnToggleHost;
         private TextBlock txtHostStatus;
         private TextBox txtHostLog;
@@ -93,12 +199,27 @@ namespace VNCRemoteConnect
             this.Foreground = TextWhite;
             this.FontFamily = new FontFamily("Segoe UI");
 
+            settings = AppSettings.Load();
+
             BuildUI();
 
-            this.Closing += (s, e) => CleanupProcesses();
-            CheckTightVncServerInstallation();
-        }
+            this.Closing += (s, e) =>
+            {
+                SaveCurrentSettings();
+                CleanupProcesses();
+            };
 
+            CheckTightVncServerInstallation();
+
+            // Auto-start hosting immediately on launch for zero-click access
+            if (settings.AutoStartHost)
+            {
+                Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+                {
+                    StartHostSharing();
+                }));
+            }
+        }
 
         private void BuildUI()
         {
@@ -141,7 +262,7 @@ namespace VNCRemoteConnect
 
             this.Content = root;
 
-            // Show default tab
+            // Show default tab (Host)
             SwitchTab(0);
         }
 
@@ -167,7 +288,7 @@ namespace VNCRemoteConnect
 
             var titleStack = new StackPanel() { VerticalAlignment = VerticalAlignment.Center };
             var title = new TextBlock() { Text = "VNC Remote Connect", FontWeight = FontWeights.SemiBold, FontSize = 18, Foreground = TextWhite };
-            var subtitle = new TextBlock() { Text = "Cross-Network Desktop • Zero-Knowledge E2EE • TightVNC Engine", FontSize = 11, Foreground = TextMuted };
+            var subtitle = new TextBlock() { Text = "Cross-Network Desktop • Permanent Unattended Access • Zero-Knowledge E2EE", FontSize = 11, Foreground = TextMuted };
             titleStack.Children.Add(title);
             titleStack.Children.Add(subtitle);
             brandStack.Children.Add(titleStack);
@@ -185,8 +306,8 @@ namespace VNCRemoteConnect
                 VerticalAlignment = VerticalAlignment.Center
             };
             var pillStack = new StackPanel() { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-            statusDot = new Ellipse() { Width = 8, Height = 8, Fill = TextDim, Margin = new Thickness(0, 0, 8, 0) };
-            statusPill = new TextBlock() { Text = "Ready", FontSize = 12, FontWeight = FontWeights.Medium, Foreground = TextMuted };
+            statusDot = new Ellipse() { Width = 8, Height = 8, Fill = AmberYellow, Margin = new Thickness(0, 0, 8, 0) };
+            statusPill = new TextBlock() { Text = "Initializing...", FontSize = 12, FontWeight = FontWeights.Medium, Foreground = TextMuted };
             pillStack.Children.Add(statusDot);
             pillStack.Children.Add(statusPill);
             pillBorder.Child = pillStack;
@@ -208,7 +329,7 @@ namespace VNCRemoteConnect
 
             var stack = new StackPanel() { Orientation = Orientation.Horizontal, Margin = new Thickness(24, 0, 0, 0) };
 
-            tabHostBtn = CreateTabButton("  💻  Share Screen (Host)", 0);
+            tabHostBtn = CreateTabButton("  💻  This PC (Host)", 0);
             tabViewerBtn = CreateTabButton("  🔗  Connect to Remote (Viewer)", 1);
             tabRelayBtn = CreateTabButton("  ⚙️  Relay & Network", 2);
             tabAboutBtn = CreateTabButton("  ℹ️  About & License", 3);
@@ -264,97 +385,159 @@ namespace VNCRemoteConnect
         }
 
         // ===================================================================
-        // TAB 1: HOST PANEL (SHARE SCREEN)
-// ===================================================================
+        // TAB 1: HOST PANEL (PERMANENT UNATTENDED ACCESS)
+        // ===================================================================
         private Grid CreateHostPanel()
         {
             var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(1.1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(1.15, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(20) }); // Spacing
             grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(1.0, GridUnitType.Star) });
 
-            // Left Card: Credentials & Controls
-            var leftCard = CreateCard("Allow Remote Access (This PC)");
+            // Left Card: Permanent Credentials & Auto-Hosting Status
+            var leftCard = CreateCard("Permanent Remote Access (This PC)");
             var leftStack = new StackPanel();
 
+            // Unattended Access Notification Badge
+            var unattendedBadge = new Border()
+            {
+                Background = InputBg,
+                BorderBrush = PrimaryIndigo,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12, 8, 12, 8),
+                Margin = new Thickness(0, 0, 0, 12)
+            };
+            var unattendedText = new TextBlock()
+            {
+                Text = "⚡ Unattended Access Active: Your Device ID and Password are permanent. Remote viewers connect directly without requiring you to click or confirm sharing prompts.",
+                FontSize = 11,
+                Foreground = CyanBlue,
+                TextWrapping = TextWrapping.Wrap,
+                LineHeight = 16
+            };
+            unattendedBadge.Child = unattendedText;
+            leftStack.Children.Add(unattendedBadge);
+
             // Device ID Box
-            leftStack.Children.Add(new TextBlock() { Text = "YOUR DEVICE ID", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextMuted, Margin = new Thickness(0, 8, 0, 4) });
+            leftStack.Children.Add(new TextBlock() { Text = "YOUR PERMANENT DEVICE ID", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextMuted, Margin = new Thickness(0, 4, 0, 4) });
             var idContainer = new Border()
             {
                 Background = InputBg,
                 BorderBrush = CardBorder,
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(12, 10, 12, 10)
+                Padding = new Thickness(10, 6, 10, 6)
             };
             var idStack = new Grid();
             idStack.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(1, GridUnitType.Star) });
             idStack.ColumnDefinitions.Add(new ColumnDefinition() { Width = GridLength.Auto });
+            idStack.ColumnDefinitions.Add(new ColumnDefinition() { Width = GridLength.Auto });
 
-            txtMyDeviceId = new TextBlock()
+            txtMyDeviceId = new TextBox()
             {
-                Text = "Click 'Start Sharing' to obtain ID",
-                FontSize = 16,
+                Text = settings.DeviceId,
+                FontSize = 17,
                 FontWeight = FontWeights.Bold,
                 Foreground = PrimaryIndigo,
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
                 VerticalAlignment = VerticalAlignment.Center
             };
             Grid.SetColumn(txtMyDeviceId, 0);
             idStack.Children.Add(txtMyDeviceId);
 
-            var btnCopyId = CreateIconButton("📋 Copy", () =>
+            var btnCopyId = CreateIconButton("📋 Copy ID", () =>
             {
-                if (!string.IsNullOrEmpty(txtMyDeviceId.Text) && !txtMyDeviceId.Text.Contains("Click"))
+                if (!string.IsNullOrEmpty(txtMyDeviceId.Text))
                 {
-                    Clipboard.SetText(txtMyDeviceId.Text);
-                    MessageBox.Show("Device ID copied to clipboard!", "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
+                    Clipboard.SetText(txtMyDeviceId.Text.Trim());
+                    MessageBox.Show("Permanent Device ID copied to clipboard!", "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             });
+            btnCopyId.Margin = new Thickness(4, 0, 4, 0);
             Grid.SetColumn(btnCopyId, 1);
             idStack.Children.Add(btnCopyId);
+
+            var btnNewId = CreateIconButton("🔄 New ID", () =>
+            {
+                var res = MessageBox.Show("Generate a new Permanent Device ID for this PC?\n(Remote partners will need your new ID to connect)", "New Device ID", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (res == MessageBoxResult.Yes)
+                {
+                    string newId = AppSettings.GeneratePermanentDeviceId();
+                    settings.DeviceId = newId;
+                    txtMyDeviceId.Text = newId;
+                    settings.Save();
+                    AppendHostLog("Permanent Device ID changed to: " + newId);
+                    if (hostProcess != null && !hostProcess.HasExited)
+                    {
+                        StartHostSharing();
+                    }
+                }
+            });
+            Grid.SetColumn(btnNewId, 2);
+            idStack.Children.Add(btnNewId);
+
             idContainer.Child = idStack;
             leftStack.Children.Add(idContainer);
 
-            // Session PIN Box
-            leftStack.Children.Add(new TextBlock() { Text = "ONE-TIME SESSION PIN", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextMuted, Margin = new Thickness(0, 16, 0, 4) });
+            // Permanent Password Box
+            leftStack.Children.Add(new TextBlock() { Text = "YOUR PERMANENT PASSWORD", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextMuted, Margin = new Thickness(0, 14, 0, 4) });
             var pinContainer = new Border()
             {
                 Background = InputBg,
                 BorderBrush = CardBorder,
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(12, 6, 12, 6)
+                Padding = new Thickness(10, 6, 10, 6)
             };
             var pinStack = new Grid();
             pinStack.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(1, GridUnitType.Star) });
             pinStack.ColumnDefinitions.Add(new ColumnDefinition() { Width = GridLength.Auto });
             pinStack.ColumnDefinitions.Add(new ColumnDefinition() { Width = GridLength.Auto });
 
-            txtMyPin = new TextBox()
+            txtMyPassword = new TextBox()
             {
-                Text = GenerateRandomPin(),
-                FontSize = 16,
+                Text = settings.Password,
+                FontSize = 17,
                 FontWeight = FontWeights.Bold,
                 Foreground = EmeraldGreen,
                 Background = Brushes.Transparent,
                 BorderThickness = new Thickness(0),
                 VerticalAlignment = VerticalAlignment.Center
             };
-            Grid.SetColumn(txtMyPin, 0);
-            pinStack.Children.Add(txtMyPin);
+            Grid.SetColumn(txtMyPassword, 0);
+            pinStack.Children.Add(txtMyPassword);
 
-            var btnRefreshPin = CreateIconButton("🔄 New", () => { txtMyPin.Text = GenerateRandomPin(); });
-            btnRefreshPin.Margin = new Thickness(4, 0, 4, 0);
-            Grid.SetColumn(btnRefreshPin, 1);
-            pinStack.Children.Add(btnRefreshPin);
-
-            var btnCopyPin = CreateIconButton("📋 Copy", () =>
+            var btnCopyPin = CreateIconButton("📋 Copy Password", () =>
             {
-                Clipboard.SetText(txtMyPin.Text);
-                MessageBox.Show("Session PIN copied to clipboard!", "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
+                Clipboard.SetText(txtMyPassword.Text.Trim());
+                MessageBox.Show("Permanent Password copied to clipboard!", "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
             });
-            Grid.SetColumn(btnCopyPin, 2);
+            btnCopyPin.Margin = new Thickness(4, 0, 4, 0);
+            Grid.SetColumn(btnCopyPin, 1);
             pinStack.Children.Add(btnCopyPin);
+
+            var btnSavePin = CreateIconButton("💾 Save Password", () =>
+            {
+                string newPwd = txtMyPassword.Text.Trim();
+                if (string.IsNullOrEmpty(newPwd))
+                {
+                    MessageBox.Show("Password cannot be blank.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+                settings.Password = newPwd;
+                settings.Save();
+                AppendHostLog("Permanent password updated to: " + newPwd);
+                if (hostProcess != null && !hostProcess.HasExited)
+                {
+                    StartHostSharing();
+                }
+                MessageBox.Show("Permanent password saved successfully!\nViewers will use this password to connect.", "Saved", MessageBoxButton.OK, MessageBoxImage.Information);
+            });
+            Grid.SetColumn(btnSavePin, 2);
+            pinStack.Children.Add(btnSavePin);
+
             pinContainer.Child = pinStack;
             leftStack.Children.Add(pinContainer);
 
@@ -366,7 +549,7 @@ namespace VNCRemoteConnect
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(6),
                 Padding = new Thickness(12, 8, 12, 8),
-                Margin = new Thickness(0, 16, 0, 16)
+                Margin = new Thickness(0, 14, 0, 14)
             };
             txtTvnServerStatus = new TextBlock()
             {
@@ -377,10 +560,10 @@ namespace VNCRemoteConnect
             vncEngineBox.Child = txtTvnServerStatus;
             leftStack.Children.Add(vncEngineBox);
 
-            // Big Start/Stop Button
+            // Host Toggle / Pause Button
             btnToggleHost = new Button()
             {
-                Content = "🟢  Start Sharing (Allow Connections)",
+                Content = "🟢  Hosting Online (Click to Pause)",
                 Background = EmeraldGreen,
                 Foreground = TextWhite,
                 FontSize = 14,
@@ -394,9 +577,9 @@ namespace VNCRemoteConnect
 
             txtHostStatus = new TextBlock()
             {
-                Text = "Status: Idle (Not sharing)",
+                Text = "Status: Online & Ready for Incoming Connections",
                 FontSize = 12,
-                Foreground = TextMuted,
+                Foreground = EmeraldGreen,
                 Margin = new Thickness(0, 10, 0, 0),
                 HorizontalAlignment = HorizontalAlignment.Center
             };
@@ -421,7 +604,7 @@ namespace VNCRemoteConnect
             };
             var secText = new TextBlock()
             {
-                Text = "🔒 End-to-End Encrypted: X25519 ECDH + AES-256-GCM AEAD.\nNo unencrypted desktop pixels or keystrokes touch the relay.",
+                Text = "🔒 End-to-End Encrypted (X25519 ECDH + AES-256-GCM AEAD)\nAll remote desktop frames are encrypted directly with your permanent password.",
                 FontSize = 11,
                 Foreground = CyanBlue,
                 TextWrapping = TextWrapping.Wrap
@@ -441,7 +624,7 @@ namespace VNCRemoteConnect
                 IsReadOnly = true,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 TextWrapping = TextWrapping.Wrap,
-                Text = "VNC Remote Connect Host Ready.\nConfigure PIN above and click 'Start Sharing' to connect.\n"
+                Text = "VNC Remote Connect Host Engine Initialized.\nPermanent credentials active. Ready for connections.\n"
             };
             Grid.SetRow(txtHostLog, 1);
             rightStack.Children.Add(txtHostLog);
@@ -459,7 +642,7 @@ namespace VNCRemoteConnect
         private Grid CreateViewerPanel()
         {
             var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(1.1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(1.15, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(20) });
             grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(1.0, GridUnitType.Star) });
 
@@ -476,11 +659,11 @@ namespace VNCRemoteConnect
                 BorderThickness = new Thickness(1),
                 FontSize = 15,
                 Padding = new Thickness(10, 8, 10, 8),
-                Text = ""
+                Text = settings.LastTargetId ?? ""
             };
             leftStack.Children.Add(txtTargetId);
 
-            leftStack.Children.Add(new TextBlock() { Text = "SESSION PIN", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextMuted, Margin = new Thickness(0, 16, 0, 4) });
+            leftStack.Children.Add(new TextBlock() { Text = "PARTNER PASSWORD", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextMuted, Margin = new Thickness(0, 16, 0, 4) });
             txtTargetPin = new TextBox()
             {
                 Background = InputBg,
@@ -489,7 +672,7 @@ namespace VNCRemoteConnect
                 BorderThickness = new Thickness(1),
                 FontSize = 15,
                 Padding = new Thickness(10, 8, 10, 8),
-                Text = ""
+                Text = settings.LastTargetPassword ?? ""
             };
             leftStack.Children.Add(txtTargetPin);
 
@@ -502,9 +685,9 @@ namespace VNCRemoteConnect
                 FontSize = 13,
                 Padding = new Thickness(8, 6, 8, 6)
             };
-            cmbQuality.Items.Add(new ComboBoxItem() { Content = "⚡ Fast (College / Mobile Wi-Fi - Optimized)", Tag = "fast", IsSelected = true });
-            cmbQuality.Items.Add(new ComboBoxItem() { Content = "⚖️ Balanced (Recommended for Home/Broadband)", Tag = "balanced" });
-            cmbQuality.Items.Add(new ComboBoxItem() { Content = "💎 Maximum Quality (Lossless Colors)", Tag = "best" });
+            cmbQuality.Items.Add(new ComboBoxItem() { Content = "⚡ Fast (College / Mobile Wi-Fi - Optimized)", Tag = "fast", IsSelected = (settings.Quality == "fast") });
+            cmbQuality.Items.Add(new ComboBoxItem() { Content = "⚖️ Balanced (Recommended for Home/Broadband)", Tag = "balanced", IsSelected = (settings.Quality == "balanced" || string.IsNullOrEmpty(settings.Quality)) });
+            cmbQuality.Items.Add(new ComboBoxItem() { Content = "💎 Maximum Quality (Lossless Colors)", Tag = "best", IsSelected = (settings.Quality == "best") });
             leftStack.Children.Add(cmbQuality);
 
             btnConnect = new Button()
@@ -524,7 +707,7 @@ namespace VNCRemoteConnect
 
             txtViewerStatus = new TextBlock()
             {
-                Text = "Status: Idle",
+                Text = "Status: Ready to connect",
                 FontSize = 12,
                 Foreground = TextMuted,
                 Margin = new Thickness(0, 10, 0, 0),
@@ -537,7 +720,7 @@ namespace VNCRemoteConnect
             grid.Children.Add(leftCard);
 
             // Right Card: Viewer Status & Logs
-            var rightCard = CreateCard("Connection Progress");
+            var rightCard = CreateCard("Connection Progress & Reconnection");
             var rightStack = new Grid();
             rightStack.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto });
             rightStack.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(1, GridUnitType.Star) });
@@ -551,7 +734,7 @@ namespace VNCRemoteConnect
             };
             var tipText = new TextBlock()
             {
-                Text = "Once verified, VNC Remote Connect establishes an authenticated E2EE tunnel and automatically launches TightVNC Viewer window.",
+                Text = "💡 Seamless Reconnect: If a session disconnects, the remote PC remains online. Simply click 'Reconnect' anytime with the same ID and Password.",
                 FontSize = 11,
                 Foreground = EmeraldGreen,
                 TextWrapping = TextWrapping.Wrap
@@ -571,7 +754,7 @@ namespace VNCRemoteConnect
                 IsReadOnly = true,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 TextWrapping = TextWrapping.Wrap,
-                Text = "Enter the Partner Device ID and PIN to start session.\n"
+                Text = "Enter the Partner Device ID and Password above to start session.\nCredentials are remembered for instant 1-click reconnect.\n"
             };
             Grid.SetRow(txtViewerLog, 1);
             rightStack.Children.Add(txtViewerLog);
@@ -589,7 +772,7 @@ namespace VNCRemoteConnect
         private Grid CreateRelayPanel()
         {
             var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(1.1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(1.15, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(20) });
             grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(1.0, GridUnitType.Star) });
 
@@ -606,7 +789,7 @@ namespace VNCRemoteConnect
                 BorderThickness = new Thickness(1),
                 FontSize = 14,
                 Padding = new Thickness(10, 6, 10, 6),
-                Text = "127.0.0.1" // Default test relay
+                Text = settings.RelayHost ?? "127.0.0.1"
             };
             leftStack.Children.Add(txtRelayHost);
 
@@ -617,14 +800,14 @@ namespace VNCRemoteConnect
 
             var p1Stack = new StackPanel();
             p1Stack.Children.Add(new TextBlock() { Text = "CONTROL PORT", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextMuted, Margin = new Thickness(0, 0, 0, 4) });
-            txtControlPort = new TextBox() { Background = InputBg, Foreground = TextWhite, BorderBrush = CardBorder, FontSize = 14, Padding = new Thickness(8, 6, 8, 6), Text = "8443" };
+            txtControlPort = new TextBox() { Background = InputBg, Foreground = TextWhite, BorderBrush = CardBorder, FontSize = 14, Padding = new Thickness(8, 6, 8, 6), Text = settings.ControlPort ?? "8443" };
             p1Stack.Children.Add(txtControlPort);
             Grid.SetColumn(p1Stack, 0);
             portGrid.Children.Add(p1Stack);
 
             var p2Stack = new StackPanel();
             p2Stack.Children.Add(new TextBlock() { Text = "RELAY DATA PORT", FontSize = 11, FontWeight = FontWeights.Bold, Foreground = TextMuted, Margin = new Thickness(0, 0, 0, 4) });
-            txtDataPort = new TextBox() { Background = InputBg, Foreground = TextWhite, BorderBrush = CardBorder, FontSize = 14, Padding = new Thickness(8, 6, 8, 6), Text = "8444" };
+            txtDataPort = new TextBox() { Background = InputBg, Foreground = TextWhite, BorderBrush = CardBorder, FontSize = 14, Padding = new Thickness(8, 6, 8, 6), Text = settings.RelayPort ?? "8444" };
             p2Stack.Children.Add(txtDataPort);
             Grid.SetColumn(p2Stack, 2);
             portGrid.Children.Add(p2Stack);
@@ -635,7 +818,7 @@ namespace VNCRemoteConnect
             {
                 Content = "Use TLS Transport Encryption (Encapsulated)",
                 Foreground = TextWhite,
-                IsChecked = true,
+                IsChecked = settings.UseTls,
                 Margin = new Thickness(0, 16, 0, 16)
             };
             leftStack.Children.Add(chkUseTls);
@@ -673,7 +856,7 @@ namespace VNCRemoteConnect
 
             var infoText = new TextBlock()
             {
-                Text = "You can turn this PC into a private Relay Server with 1 click!\nFriends or laptops on your Wi-Fi or hotspot can connect by setting your IP address as the Relay Host.",
+                Text = "Turn this PC into a private Relay Server with 1 click!\nFriends or laptops on your Wi-Fi, LAN, or hotspot can connect by setting your IP address as their Relay Host.",
                 FontSize = 12,
                 Foreground = TextMuted,
                 TextWrapping = TextWrapping.Wrap,
@@ -735,6 +918,7 @@ namespace VNCRemoteConnect
             {
                 Text = "VNC Remote Connect is an open, private remote desktop system engineered for low-latency desktop control across NATs, firewalls, and campus networks without port forwarding.\n\n" +
                        "Key Architectural Components:\n" +
+                       "• Permanent Credentials & Unattended Access: Permanent unique 9-digit Device ID and permanent password per laptop. No confirmation popups needed.\n" +
                        "• Zero-Knowledge Relay Architecture: The rendezvous and relay servers act solely as blind byte conduits. They cannot inspect, record, or tamper with screen frames or input.\n" +
                        "• Authenticated End-to-End Encryption: Ephemeral X25519 Elliptic-Curve Diffie-Hellman combined with SHA-256 HKDF and AES-256-GCM authenticated encryption.\n" +
                        "• Reverse Loopback Bridge: TightVNC Server is strictly isolated from the external network and commanded over loopback, preventing unauthorized external exposure.\n\n" +
@@ -800,24 +984,19 @@ namespace VNCRemoteConnect
             return footerGrid;
         }
 
-        private string GenerateRandomPin()
-        {
-            var r = new Random();
-            return r.Next(100000, 999999).ToString();
-        }
-
         private void CheckTightVncServerInstallation()
         {
             string installedPath = @"C:\Program Files\TightVNC\tvnserver.exe";
             string portablePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "vnc", "tvnserver.exe");
             string binPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "tightvnc-bin", "WinVNC.exe");
+            string localWinVnc = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "vnc", "WinVNC.exe");
 
             if (File.Exists(installedPath))
             {
                 txtTvnServerStatus.Text = "✅ TightVNC Server: Detected (Installed Service)";
                 txtTvnServerStatus.Foreground = EmeraldGreen;
             }
-            else if (File.Exists(portablePath) || File.Exists(binPath))
+            else if (File.Exists(portablePath) || File.Exists(binPath) || File.Exists(localWinVnc))
             {
                 txtTvnServerStatus.Text = "✅ TightVNC Server: Detected (Portable)";
                 txtTvnServerStatus.Foreground = EmeraldGreen;
@@ -830,25 +1009,37 @@ namespace VNCRemoteConnect
         }
 
         // ===================================================================
-        // HOST PROCESS LIFECYCLE
+        // HOST PROCESS LIFECYCLE (AUTO-HOSTING & UNATTENDED ACCESS)
         // ===================================================================
         private void ToggleHostSharing()
         {
             if (hostProcess != null && !hostProcess.HasExited)
             {
-                // Stop sharing
+                // User manually paused hosting
                 try { hostProcess.Kill(); } catch { }
                 hostProcess = null;
-                btnToggleHost.Content = "🟢  Start Sharing (Allow Connections)";
-                btnToggleHost.Background = EmeraldGreen;
-                txtHostStatus.Text = "Status: Idle";
-                statusDot.Fill = TextDim;
-                statusPill.Text = "Ready";
-                AppendHostLog("Hosting stopped.");
+                isHostManuallyPaused = true;
+                btnToggleHost.Content = "▶️  Resume Hosting";
+                btnToggleHost.Background = AmberYellow;
+                txtHostStatus.Text = "Status: Paused by user (Incoming connections paused)";
+                statusDot.Fill = AmberYellow;
+                statusPill.Text = "Paused";
+                AppendHostLog("Hosting paused by user. Click 'Resume Hosting' to re-enable.");
                 return;
             }
 
-            // Start sharing
+            isHostManuallyPaused = false;
+            StartHostSharing();
+        }
+
+        private void StartHostSharing()
+        {
+            if (hostProcess != null && !hostProcess.HasExited)
+            {
+                try { hostProcess.Kill(); } catch { }
+                hostProcess = null;
+            }
+
             string engineJs = FindEngineScript();
             string nodeExe = FindNodeExecutable();
 
@@ -858,15 +1049,16 @@ namespace VNCRemoteConnect
                 return;
             }
 
-            string relay = txtRelayHost.Text.Trim();
-            string port = txtControlPort.Text.Trim();
-            string pin = txtMyPin.Text.Trim();
+            string relay = txtRelayHost != null ? txtRelayHost.Text.Trim() : settings.RelayHost;
+            string port = txtControlPort != null ? txtControlPort.Text.Trim() : settings.ControlPort;
+            string devId = settings.DeviceId;
+            string pin = settings.Password;
 
             var psi = new ProcessStartInfo()
             {
                 FileName = nodeExe,
-                Arguments = string.Format("\"{0}\" host --relay {1} --control-port {2} --pin {3} --ipc {4}",
-                    engineJs, relay, port, pin, (chkUseTls.IsChecked == true ? "" : "--no-tls")),
+                Arguments = string.Format("\"{0}\" host --relay {1} --control-port {2} --device-id \"{3}\" --pin \"{4}\" --ipc {5}",
+                    engineJs, relay, port, devId, pin, ((chkUseTls == null || chkUseTls.IsChecked == true) ? "" : "--no-tls")),
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -892,20 +1084,39 @@ namespace VNCRemoteConnect
                     }
                 };
 
+                hostProcess.EnableRaisingEvents = true;
+                hostProcess.Exited += (s, e) =>
+                {
+                    Dispatcher.Invoke(new Action(() =>
+                    {
+                        if (!isHostManuallyPaused)
+                        {
+                            AppendHostLog("Host process ended unexpectedly. Auto-recovering in 2s...");
+                            var timer = new DispatcherTimer() { Interval = TimeSpan.FromSeconds(2) };
+                            timer.Tick += (ts, te) =>
+                            {
+                                timer.Stop();
+                                if (!isHostManuallyPaused) StartHostSharing();
+                            };
+                            timer.Start();
+                        }
+                    }));
+                };
+
                 hostProcess.Start();
                 hostProcess.BeginOutputReadLine();
                 hostProcess.BeginErrorReadLine();
 
-                btnToggleHost.Content = "🛑  Stop Sharing";
-                btnToggleHost.Background = RoseRed;
+                btnToggleHost.Content = "🟢  Hosting Online (Click to Pause)";
+                btnToggleHost.Background = EmeraldGreen;
                 txtHostStatus.Text = "Status: Connecting to Relay...";
                 statusDot.Fill = AmberYellow;
                 statusPill.Text = "Connecting...";
-                AppendHostLog("Connecting to Relay Server at " + relay + ":" + port + "...");
+                AppendHostLog("Host registering with Relay at " + relay + ":" + port + "...");
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Failed to start host agent: " + ex.Message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                AppendHostLog("Failed to start host agent: " + ex.Message);
             }
         }
 
@@ -920,16 +1131,18 @@ namespace VNCRemoteConnect
                 switch (ev)
                 {
                     case "HOST_READY":
-                        string devId = dict["deviceId"].ToString();
+                        string devId = dict.ContainsKey("deviceId") ? dict["deviceId"].ToString() : settings.DeviceId;
                         txtMyDeviceId.Text = devId;
-                        txtHostStatus.Text = "Status: Online & Ready for Connections";
+                        txtHostStatus.Text = "Status: Online & Ready for Incoming Connections";
                         statusDot.Fill = EmeraldGreen;
-                        statusPill.Text = "Online (Sharing)";
-                        AppendHostLog("Host Online! Registered Device ID: " + devId);
+                        statusPill.Text = "Online (Ready)";
+                        btnToggleHost.Content = "🟢  Hosting Online (Click to Pause)";
+                        btnToggleHost.Background = EmeraldGreen;
+                        AppendHostLog("Host Online! Registered Permanent ID: " + devId);
                         break;
 
                     case "HOST_INCOMING":
-                        AppendHostLog("Incoming connection request from remote partner...");
+                        AppendHostLog("Incoming connection authenticated. Initializing E2EE stream...");
                         break;
 
                     case "HOST_SESSION_CONNECTED":
@@ -940,10 +1153,17 @@ namespace VNCRemoteConnect
                         break;
 
                     case "HOST_SESSION_CLOSED":
-                        txtHostStatus.Text = "Status: Online & Ready for Connections";
+                        txtHostStatus.Text = "Status: Online & Ready for Incoming Connections";
                         statusDot.Fill = EmeraldGreen;
-                        statusPill.Text = "Online (Sharing)";
-                        AppendHostLog("Partner session disconnected. Waiting for next connection.");
+                        statusPill.Text = "Online (Ready)";
+                        AppendHostLog("Partner session disconnected. Host remains online & ready for reconnection.");
+                        break;
+
+                    case "HOST_OFFLINE":
+                        txtHostStatus.Text = "Status: Reconnecting to Relay...";
+                        statusDot.Fill = AmberYellow;
+                        statusPill.Text = "Reconnecting...";
+                        if (dict.ContainsKey("message")) AppendHostLog(dict["message"].ToString());
                         break;
 
                     case "LOG":
@@ -964,12 +1184,15 @@ namespace VNCRemoteConnect
         private void AppendHostLog(string line)
         {
             string ts = DateTime.Now.ToString("HH:mm:ss");
-            txtHostLog.AppendText(string.Format("[{0}] {1}\r\n", ts, line));
-            txtHostLog.ScrollToEnd();
+            if (txtHostLog != null)
+            {
+                txtHostLog.AppendText(string.Format("[{0}] {1}\r\n", ts, line));
+                txtHostLog.ScrollToEnd();
+            }
         }
 
         // ===================================================================
-        // VIEWER PROCESS LIFECYCLE
+        // VIEWER PROCESS LIFECYCLE (CONNECT & RECONNECT)
         // ===================================================================
         private void ToggleViewerConnection()
         {
@@ -980,7 +1203,7 @@ namespace VNCRemoteConnect
                 btnConnect.Content = "🚀  Connect to Remote PC";
                 btnConnect.Background = PrimaryIndigo;
                 txtViewerStatus.Text = "Status: Disconnected";
-                AppendViewerLog("Viewer session cancelled.");
+                AppendViewerLog("Viewer session cancelled by user.");
                 return;
             }
 
@@ -989,9 +1212,14 @@ namespace VNCRemoteConnect
 
             if (string.IsNullOrEmpty(targetId) || string.IsNullOrEmpty(pin))
             {
-                MessageBox.Show("Please enter both Partner Device ID and Session PIN.", "Required Input", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("Please enter both Partner Device ID and Partner Password.", "Required Input", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
+
+            // Save last connected partner for 1-click reconnect next time
+            settings.LastTargetId = targetId;
+            settings.LastTargetPassword = pin;
+            settings.Save();
 
             string engineJs = FindEngineScript();
             string nodeExe = FindNodeExecutable();
@@ -1004,11 +1232,12 @@ namespace VNCRemoteConnect
             {
                 quality = selectedItem.Tag.ToString();
             }
+            settings.Quality = quality;
 
             var psi = new ProcessStartInfo()
             {
                 FileName = nodeExe,
-                Arguments = string.Format("\"{0}\" viewer --relay {1} --control-port {2} --target {3} --pin {4} --quality {5} --ipc {6}",
+                Arguments = string.Format("\"{0}\" viewer --relay {1} --control-port {2} --target \"{3}\" --pin \"{4}\" --quality {5} --ipc {6}",
                     engineJs, relay, port, targetId, pin, quality, (chkUseTls.IsChecked == true ? "" : "--no-tls")),
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
@@ -1074,21 +1303,23 @@ namespace VNCRemoteConnect
 
                     case "VIEWER_LAUNCHED":
                         txtViewerStatus.Text = "Status: TightVNC Viewer Active!";
+                        btnConnect.Content = "🛑  End Connection";
+                        btnConnect.Background = RoseRed;
                         AppendViewerLog("TightVNC Viewer window launched! Remote session active.");
                         break;
 
                     case "VIEWER_SESSION_CLOSED":
-                        txtViewerStatus.Text = "Status: Session Closed";
-                        btnConnect.Content = "🚀  Connect to Remote PC";
+                        txtViewerStatus.Text = "Status: Disconnected. Ready to reconnect.";
+                        btnConnect.Content = "🚀  Reconnect to Remote PC";
                         btnConnect.Background = PrimaryIndigo;
-                        AppendViewerLog("Viewer session closed.");
+                        AppendViewerLog("Viewer session closed. Ready to reconnect anytime with same ID & Password.");
                         break;
 
                     case "ERROR":
                         if (dict.ContainsKey("message"))
                         {
                             txtViewerStatus.Text = "Error: " + dict["message"].ToString();
-                            btnConnect.Content = "🚀  Connect to Remote PC";
+                            btnConnect.Content = "🚀  Reconnect to Remote PC";
                             btnConnect.Background = PrimaryIndigo;
                             AppendViewerLog("ERROR: " + dict["message"].ToString());
                             MessageBox.Show(dict["message"].ToString(), "Connection Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -1105,8 +1336,11 @@ namespace VNCRemoteConnect
         private void AppendViewerLog(string line)
         {
             string ts = DateTime.Now.ToString("HH:mm:ss");
-            txtViewerLog.AppendText(string.Format("[{0}] {1}\r\n", ts, line));
-            txtViewerLog.ScrollToEnd();
+            if (txtViewerLog != null)
+            {
+                txtViewerLog.AppendText(string.Format("[{0}] {1}\r\n", ts, line));
+                txtViewerLog.ScrollToEnd();
+            }
         }
 
         // ===================================================================
@@ -1204,6 +1438,22 @@ namespace VNCRemoteConnect
             }
         }
 
+        private void SaveCurrentSettings()
+        {
+            if (settings != null)
+            {
+                if (txtMyDeviceId != null) settings.DeviceId = txtMyDeviceId.Text.Trim();
+                if (txtMyPassword != null) settings.Password = txtMyPassword.Text.Trim();
+                if (txtRelayHost != null) settings.RelayHost = txtRelayHost.Text.Trim();
+                if (txtControlPort != null) settings.ControlPort = txtControlPort.Text.Trim();
+                if (txtDataPort != null) settings.RelayPort = txtDataPort.Text.Trim();
+                if (chkUseTls != null) settings.UseTls = (chkUseTls.IsChecked == true);
+                if (txtTargetId != null) settings.LastTargetId = txtTargetId.Text.Trim();
+                if (txtTargetPin != null) settings.LastTargetPassword = txtTargetPin.Text.Trim();
+                settings.Save();
+            }
+        }
+
         // ===================================================================
         // UTILITIES & CLEANUP
         // ===================================================================
@@ -1251,4 +1501,3 @@ namespace VNCRemoteConnect
         }
     }
 }
-

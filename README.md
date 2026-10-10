@@ -34,25 +34,25 @@ dist\VNCremoteconnect\VNCremoteconnect.exe
 
 ---
 
-### 2. How to Share Your Screen (Host)
-1. In the VNC Remote Connect window, select the **💻 Share Screen (Host)** tab.
-2. Click **🟢 Start Sharing (Allow Connections)**.
-3. The app connects to the relay and generates:
-   - **Your Device ID** (e.g., `888-123-456`)
-   - **One-Time Session PIN** (e.g., `582910`)
-4. Share the Device ID and PIN with the person connecting to you.
+### 2. Permanent Unattended Access (Host / This PC)
+1. In the VNC Remote Connect window, select the **💻 This PC (Host)** tab.
+2. The app automatically assigns a **Permanent Device ID** and **Permanent Password** for this laptop (saved permanently in `settings.json`).
+3. Hosting is **🟢 AUTOMATICALLY ONLINE** on startup.
+4. Remote partners connect directly using this ID and Password — **no manual confirmation popups or "Start Sharing" clicks required**.
+5. You can copy your ID and Password with one click, or change/customize your password anytime.
 
 ---
 
-### 3. How to Connect to a Remote PC (Viewer)
+### 3. How to Connect & Reconnect (Viewer)
 1. Open VNC Remote Connect and select the **🔗 Connect to Remote (Viewer)** tab.
-2. Enter your partner's **Device ID** and **Session PIN**.
+2. Enter your partner's **Permanent Device ID** and **Permanent Password**.
 3. Choose your connection profile:
    - **⚡ Fast (Optimized for College Wi-Fi / Low Bandwidth):** Tight encoding, level 7, JPEG quality 6.
    - **⚖️ Balanced (Recommended):** Smooth colors and low latency.
    - **💎 Maximum Quality:** Lossless fidelity.
 4. Click **🚀 Connect to Remote PC**.
-5. Once authenticated, the E2EE tunnel is established and the TightVNC Viewer window launches automatically!
+5. The E2EE tunnel is established and the TightVNC Viewer window launches automatically!
+6. **Seamless Reconnection:** If the connection drops or you close the session, the remote host laptop remains online. Simply click **🚀 Reconnect to Remote PC** with the same ID and Password to get back in immediately!
 
 ---
 

@@ -1,4 +1,4 @@
-﻿// VNC Remote Connect - Core Unified Engine
+// VNC Remote Connect - Core Unified Engine
 //
 // Supports Host Mode, Viewer Mode, Relay Mode, and Relay Ping.
 // Offers both human-readable console output and structured --ipc mode.
@@ -245,7 +245,7 @@ function runRelay() {
     }
 
     socket.on('close', () => {
-      if (currentDeviceId && registeredHosts.has(currentDeviceId)) {
+      if (currentDeviceId && registeredHosts.get(currentDeviceId)?.socket === socket) {
         registeredHosts.delete(currentDeviceId);
         emitEvent('RELAY_HOST_UNREGISTERED', { deviceId: currentDeviceId });
       }
@@ -343,34 +343,64 @@ function runHost() {
   const sessionPin = getArg('--pin', process.env.VNC_SESSION_PIN || '123456');
   const useTls = !noTls && (process.env.VNC_USE_TLS !== '0');
 
-  let assignedDeviceId = null;
+  let assignedDeviceId = desiredId;
   let relayPort = 8444;
+  let controlSocket = null;
+  let isReconnecting = false;
+  let reconnectTimer = null;
 
-  log(`Connecting to Relay Server at ${relayHost}:${controlPort} (TLS: ${useTls})...`);
-
-  const controlSocket = connectTransport(controlPort, relayHost, useTls, () => {
-    controlSocket.write(JSON.stringify({
-      type: 'REGISTER_HOST',
-      deviceId: desiredId,
-      hostname: os.hostname()
-    }) + '\n');
-  });
-
-  let buffer = '';
-  controlSocket.on('data', (chunk) => {
-    buffer += chunk.toString('utf8');
-    let boundary = buffer.indexOf('\n');
-    while (boundary !== -1) {
-      const line = buffer.slice(0, boundary).trim();
-      buffer = buffer.slice(boundary + 1);
-      if (line) {
-        try {
-          handleControlMessage(JSON.parse(line));
-        } catch (e) {}
-      }
-      boundary = buffer.indexOf('\n');
+  function connectToRelay() {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
     }
-  });
+    log(`Connecting to Relay Server at ${relayHost}:${controlPort} (TLS: ${useTls})...`);
+
+    controlSocket = connectTransport(controlPort, relayHost, useTls, () => {
+      isReconnecting = false;
+      log(`Connected to Relay. Registering permanent Device ID [${desiredId || 'auto'}]...`);
+      controlSocket.write(JSON.stringify({
+        type: 'REGISTER_HOST',
+        deviceId: desiredId,
+        hostname: os.hostname()
+      }) + '\n');
+    });
+
+    let buffer = '';
+    controlSocket.on('data', (chunk) => {
+      buffer += chunk.toString('utf8');
+      let boundary = buffer.indexOf('\n');
+      while (boundary !== -1) {
+        const line = buffer.slice(0, boundary).trim();
+        buffer = buffer.slice(boundary + 1);
+        if (line) {
+          try {
+            handleControlMessage(JSON.parse(line));
+          } catch (e) {}
+        }
+        boundary = buffer.indexOf('\n');
+      }
+    });
+
+    controlSocket.on('close', () => {
+      emitEvent('HOST_OFFLINE', { message: 'Relay connection lost. Auto-reconnecting in 3 seconds...' });
+      scheduleReconnect();
+    });
+
+    controlSocket.on('error', (err) => {
+      emitEvent('ERROR', { message: `Relay connection error: ${err.message}` });
+      scheduleReconnect();
+    });
+  }
+
+  function scheduleReconnect() {
+    if (isReconnecting || reconnectTimer) return;
+    isReconnecting = true;
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      connectToRelay();
+    }, 3000);
+  }
 
   function handleControlMessage(msg) {
     switch (msg.type) {
@@ -389,7 +419,7 @@ function runHost() {
       case 'INCOMING_CONNECTION':
         emitEvent('HOST_INCOMING', { ticket: msg.sessionTicket });
         if (msg.clientPin && msg.clientPin === sessionPin) {
-          log(`PIN match! Generating ephemeral X25519 session keys...`);
+          log(`Password match! Establishing encrypted session...`);
           const hostSessionKeys = generateSessionKeyPair();
           const sessionCrypto = deriveSessionKeys(
             hostSessionKeys.privateKey,
@@ -406,11 +436,11 @@ function runHost() {
 
           attachHostToRelay(msg.sessionTicket, sessionCrypto);
         } else {
-          log(`Session PIN mismatch! Rejecting connection.`);
+          log(`Password mismatch! Rejecting connection attempt.`);
           controlSocket.write(JSON.stringify({
             type: 'HOST_REJECT',
             sessionTicket: msg.sessionTicket,
-            reason: 'Invalid Session PIN'
+            reason: 'Invalid Session Password'
           }) + '\n');
         }
         break;
@@ -457,14 +487,17 @@ function runHost() {
 
     localServer.listen(0, localIp, () => {
       const port = localServer.address().port;
-      log(`Reverse bridge listening on ${localIp}:${port}. Triggering tvnserver...`);
+      log(`Reverse bridge listening on ${localIp}:${port}. Triggering TightVNC server...`);
 
       const tvnPath = findTightVncServer();
       if (tvnPath) {
         exec(`"${tvnPath}" -controlservice -connect ${localIp}:${port}`, (err) => {
           if (err) {
-            // Also attempt user mode -controlapp
-            exec(`"${tvnPath}" -controlapp -connect ${localIp}:${port}`, () => {});
+            exec(`"${tvnPath}" -controlapp -connect ${localIp}:${port}`, (err2) => {
+              if (err2) {
+                exec(`"${tvnPath}" -connect ${localIp}:${port}`, () => {});
+              }
+            });
           }
         });
       }
@@ -498,20 +531,14 @@ function runHost() {
       if (!relaySocket.destroyed) relaySocket.destroy();
       if (!vncSocket.destroyed) vncSocket.destroy();
       emitEvent('HOST_SESSION_CLOSED');
+      log(`Remote partner disconnected. Host remains online & ready for reconnection.`);
     }
 
     relaySocket.on('close', cleanup);
     vncSocket.on('close', cleanup);
   }
 
-  controlSocket.on('close', () => {
-    emitEvent('ERROR', { message: 'Disconnected from Relay Server' });
-    process.exit(1);
-  });
-
-  controlSocket.on('error', (err) => {
-    emitEvent('ERROR', { message: `Control connection failed: ${err.message}` });
-  });
+  connectToRelay();
 }
 
 // ---------------------------------------------------------------------------
