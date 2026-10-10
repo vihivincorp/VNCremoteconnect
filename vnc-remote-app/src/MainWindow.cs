@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -15,7 +16,7 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using Path = System.IO.Path;
 
-namespace VNCRemoteConnect
+namespace Asynchronous
 {
     // =======================================================================
     // PERSISTENT SETTINGS MODEL
@@ -49,16 +50,29 @@ namespace VNCRemoteConnect
         {
             try
             {
+                // 1. Portable mode: check if settings.json exists in application folder
                 string localPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
                 if (File.Exists(localPath)) return localPath;
 
+                // 2. Standard path: %APPDATA%\asynchronous\settings.json
                 string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                string dir = Path.Combine(appData, "VNCremoteconnect");
-                if (!Directory.Exists(dir))
+                string newDir = Path.Combine(appData, "asynchronous");
+                string newPath = Path.Combine(newDir, "settings.json");
+
+                // Backward compatibility: Migrate settings from earlier VNCremoteconnect install if present
+                string oldPath = Path.Combine(appData, "VNCremoteconnect", "settings.json");
+                if (!File.Exists(newPath) && File.Exists(oldPath))
                 {
-                    Directory.CreateDirectory(dir);
+                    if (!Directory.Exists(newDir)) Directory.CreateDirectory(newDir);
+                    File.Copy(oldPath, newPath, true);
+                    return newPath;
                 }
-                return Path.Combine(dir, "settings.json");
+
+                if (!Directory.Exists(newDir))
+                {
+                    Directory.CreateDirectory(newDir);
+                }
+                return newPath;
             }
             catch
             {
@@ -124,6 +138,10 @@ namespace VNCRemoteConnect
     // =======================================================================
     public class MainWindow : Window
     {
+        // Version & Repository
+        public const string CurrentVersion = "1.0.0";
+        public const string GitHubRepo = "vihivincorp/VNCremoteconnect";
+
         // Colors & Brushes (Curated Dark Slate & Indigo Palette)
         private static readonly Brush BgBrush = new SolidColorBrush(Color.FromRgb(15, 23, 42));       // #0F172A
         private static readonly Brush HeaderBrush = new SolidColorBrush(Color.FromRgb(30, 41, 59));   // #1E293B
@@ -140,6 +158,7 @@ namespace VNCRemoteConnect
         private static readonly Brush RoseRed = new SolidColorBrush(Color.FromRgb(244, 63, 94));       // #F43F5E
         private static readonly Brush AmberYellow = new SolidColorBrush(Color.FromRgb(245, 158, 11));  // #F59E0B
         private static readonly Brush CyanBlue = new SolidColorBrush(Color.FromRgb(6, 182, 212));      // #06B6D4
+        private static readonly Brush UpdateBannerBg = new SolidColorBrush(Color.FromRgb(49, 46, 129)); // Dark Indigo
 
         // State & Settings
         private AppSettings settings;
@@ -148,6 +167,7 @@ namespace VNCRemoteConnect
         private Process relayProcess = null;
         private JavaScriptSerializer json = new JavaScriptSerializer();
         private bool isHostManuallyPaused = false;
+        private string latestReleaseDownloadUrl = "https://github.com/vihivincorp/VNCremoteconnect/releases";
 
         // UI Controls - Navigation
         private Button tabHostBtn;
@@ -160,6 +180,10 @@ namespace VNCRemoteConnect
         private Grid panelAbout;
         private TextBlock statusPill;
         private Ellipse statusDot;
+
+        // UI Controls - Update Banner
+        private Border updateBanner;
+        private TextBlock txtUpdateBanner;
 
         // UI Controls - Host Tab
         private TextBox txtMyDeviceId;
@@ -187,11 +211,14 @@ namespace VNCRemoteConnect
         private Button btnToggleLocalRelay;
         private TextBlock txtLocalRelayStatus;
 
+        // UI Controls - About Tab
+        private TextBlock txtManualUpdateResult;
+
         public MainWindow()
         {
-            this.Title = "VNC Remote Connect - Secure Cross-Network Desktop";
+            this.Title = "asynchronous - Secure Cross-Network Desktop";
             this.Width = 860;
-            this.Height = 640;
+            this.Height = 650;
             this.MinWidth = 800;
             this.MinHeight = 580;
             this.WindowStartupLocation = WindowStartupLocation.CenterScreen;
@@ -211,7 +238,7 @@ namespace VNCRemoteConnect
 
             CheckTightVncServerInstallation();
 
-            // Auto-start hosting immediately on launch for zero-click access
+            // Auto-start hosting immediately on launch for zero-click unattended access
             if (settings.AutoStartHost)
             {
                 Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
@@ -219,29 +246,38 @@ namespace VNCRemoteConnect
                     StartHostSharing();
                 }));
             }
+
+            // Check for updates asynchronously in background (non-blocking)
+            CheckForUpdatesAsync(isManualCheck: false);
         }
 
         private void BuildUI()
         {
             var root = new Grid();
-            root.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(64) }); // Header
-            root.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(48) }); // Tab bar
-            root.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(1, GridUnitType.Star) }); // Content
-            root.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(32) }); // Footer
+            root.RowDefinitions.Add(new RowDefinition() { Height = GridLength.Auto }); // 0. Update Banner
+            root.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(64) }); // 1. Header
+            root.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(48) }); // 2. Tab bar
+            root.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(1, GridUnitType.Star) }); // 3. Content
+            root.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(32) }); // 4. Footer
+
+            // 0. Update Notification Banner
+            updateBanner = CreateUpdateBanner();
+            Grid.SetRow(updateBanner, 0);
+            root.Children.Add(updateBanner);
 
             // 1. Header
             var header = CreateHeader();
-            Grid.SetRow(header, 0);
+            Grid.SetRow(header, 1);
             root.Children.Add(header);
 
             // 2. Tab Bar
             var tabBar = CreateTabBar();
-            Grid.SetRow(tabBar, 1);
+            Grid.SetRow(tabBar, 2);
             root.Children.Add(tabBar);
 
             // 3. Tab Contents
             var contentContainer = new Grid();
-            Grid.SetRow(contentContainer, 2);
+            Grid.SetRow(contentContainer, 3);
             contentContainer.Margin = new Thickness(24, 16, 24, 8);
 
             panelHost = CreateHostPanel();
@@ -257,13 +293,77 @@ namespace VNCRemoteConnect
 
             // 4. Footer
             var footer = CreateFooter();
-            Grid.SetRow(footer, 3);
+            Grid.SetRow(footer, 4);
             root.Children.Add(footer);
 
             this.Content = root;
 
             // Show default tab (Host)
             SwitchTab(0);
+        }
+
+        private Border CreateUpdateBanner()
+        {
+            var border = new Border()
+            {
+                Background = UpdateBannerBg,
+                BorderBrush = PrimaryIndigo,
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Padding = new Thickness(20, 8, 20, 8),
+                Visibility = Visibility.Collapsed
+            };
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = GridLength.Auto });
+
+            txtUpdateBanner = new TextBlock()
+            {
+                Text = "🎉 New version available! Your current version remains fully compatible to connect.",
+                FontSize = 12,
+                FontWeight = FontWeights.Medium,
+                Foreground = TextWhite,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(txtUpdateBanner, 0);
+            grid.Children.Add(txtUpdateBanner);
+
+            var btnDownload = new Button()
+            {
+                Content = "⬇️  Download Update",
+                Background = PrimaryIndigo,
+                Foreground = TextWhite,
+                FontSize = 11,
+                FontWeight = FontWeights.SemiBold,
+                Padding = new Thickness(12, 4, 12, 4),
+                BorderThickness = new Thickness(0),
+                Cursor = Cursors.Hand,
+                Margin = new Thickness(10, 0, 8, 0)
+            };
+            btnDownload.Click += (s, e) =>
+            {
+                try { Process.Start(latestReleaseDownloadUrl); } catch { }
+            };
+            Grid.SetColumn(btnDownload, 1);
+            grid.Children.Add(btnDownload);
+
+            var btnDismiss = new Button()
+            {
+                Content = "✕",
+                Background = Brushes.Transparent,
+                Foreground = TextMuted,
+                FontSize = 12,
+                Padding = new Thickness(8, 4, 8, 4),
+                BorderThickness = new Thickness(0),
+                Cursor = Cursors.Hand
+            };
+            btnDismiss.Click += (s, e) => { border.Visibility = Visibility.Collapsed; };
+            Grid.SetColumn(btnDismiss, 2);
+            grid.Children.Add(btnDismiss);
+
+            border.Child = grid;
+            return border;
         }
 
         private UIElement CreateHeader()
@@ -282,12 +382,12 @@ namespace VNCRemoteConnect
                 Padding = new Thickness(10, 4, 10, 4),
                 Margin = new Thickness(0, 0, 12, 0)
             };
-            var logoText = new TextBlock() { Text = "VNC", FontWeight = FontWeights.Bold, FontSize = 16, Foreground = TextWhite };
+            var logoText = new TextBlock() { Text = "async", FontWeight = FontWeights.Bold, FontSize = 15, Foreground = TextWhite };
             logoBadge.Child = logoText;
             brandStack.Children.Add(logoBadge);
 
             var titleStack = new StackPanel() { VerticalAlignment = VerticalAlignment.Center };
-            var title = new TextBlock() { Text = "VNC Remote Connect", FontWeight = FontWeights.SemiBold, FontSize = 18, Foreground = TextWhite };
+            var title = new TextBlock() { Text = "asynchronous", FontWeight = FontWeights.SemiBold, FontSize = 18, Foreground = TextWhite };
             var subtitle = new TextBlock() { Text = "Cross-Network Desktop • Permanent Unattended Access • Zero-Knowledge E2EE", FontSize = 11, Foreground = TextMuted };
             titleStack.Children.Add(title);
             titleStack.Children.Add(subtitle);
@@ -624,7 +724,7 @@ namespace VNCRemoteConnect
                 IsReadOnly = true,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 TextWrapping = TextWrapping.Wrap,
-                Text = "VNC Remote Connect Host Engine Initialized.\nPermanent credentials active. Ready for connections.\n"
+                Text = "asynchronous Host Engine Initialized.\nPermanent credentials active. Ready for connections.\n"
             };
             Grid.SetRow(txtHostLog, 1);
             rightStack.Children.Add(txtHostLog);
@@ -896,17 +996,17 @@ namespace VNCRemoteConnect
         }
 
         // ===================================================================
-        // TAB 4: ABOUT & LICENSING
+        // TAB 4: ABOUT, UPDATES & LICENSING
         // ===================================================================
         private Grid CreateAboutPanel()
         {
             var grid = new Grid();
-            var card = CreateCard("About VNC Remote Connect & Open-Source Compliance");
+            var card = CreateCard("About asynchronous & Version Info");
             var stack = new StackPanel();
 
             var heading = new TextBlock()
             {
-                Text = "VNC Remote Connect - Windows Remote Desktop Solution",
+                Text = "asynchronous - Secure Windows Remote Desktop Solution",
                 FontSize = 16,
                 FontWeight = FontWeights.Bold,
                 Foreground = PrimaryIndigo,
@@ -914,16 +1014,56 @@ namespace VNCRemoteConnect
             };
             stack.Children.Add(heading);
 
+            var verBox = new Border()
+            {
+                Background = InputBg,
+                BorderBrush = CardBorder,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(12, 10, 12, 10),
+                Margin = new Thickness(0, 0, 0, 14)
+            };
+            var verGrid = new Grid();
+            verGrid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(1, GridUnitType.Star) });
+            verGrid.ColumnDefinitions.Add(new ColumnDefinition() { Width = GridLength.Auto });
+
+            var verStack = new StackPanel();
+            verStack.Children.Add(new TextBlock() { Text = "Installed Version: v" + CurrentVersion + " (Native WPF)", FontWeight = FontWeights.SemiBold, FontSize = 13, Foreground = TextWhite });
+            verStack.Children.Add(new TextBlock() { Text = "Cross-Version Compatibility: Fully compatible with older and newer client versions.", FontSize = 11, Foreground = EmeraldGreen, Margin = new Thickness(0, 2, 0, 0) });
+            Grid.SetColumn(verStack, 0);
+            verGrid.Children.Add(verStack);
+
+            var btnCheckUpdates = CreateIconButton("🔍 Check for Updates", () =>
+            {
+                txtManualUpdateResult.Text = "Checking GitHub for updates...";
+                txtManualUpdateResult.Foreground = AmberYellow;
+                CheckForUpdatesAsync(isManualCheck: true);
+            });
+            Grid.SetColumn(btnCheckUpdates, 1);
+            verGrid.Children.Add(btnCheckUpdates);
+
+            verBox.Child = verGrid;
+            stack.Children.Add(verBox);
+
+            txtManualUpdateResult = new TextBlock()
+            {
+                Text = "",
+                FontSize = 12,
+                Margin = new Thickness(0, 0, 0, 12)
+            };
+            stack.Children.Add(txtManualUpdateResult);
+
             var desc = new TextBlock()
             {
-                Text = "VNC Remote Connect is an open, private remote desktop system engineered for low-latency desktop control across NATs, firewalls, and campus networks without port forwarding.\n\n" +
+                Text = "asynchronous is an open, private remote desktop system engineered for low-latency desktop control across NATs, firewalls, and campus networks without port forwarding.\n\n" +
                        "Key Architectural Components:\n" +
-                       "• Permanent Credentials & Unattended Access: Permanent unique 9-digit Device ID and permanent password per laptop. No confirmation popups needed.\n" +
+                       "• Permanent Credentials & Unattended Access: Permanent unique 9-digit Device ID and permanent password per PC. Viewers connect without manual confirmation popups.\n" +
+                       "• Backward & Forward Compatibility: Automatically checks for new versions while remaining fully capable of connecting with earlier or updated releases.\n" +
                        "• Zero-Knowledge Relay Architecture: The rendezvous and relay servers act solely as blind byte conduits. They cannot inspect, record, or tamper with screen frames or input.\n" +
                        "• Authenticated End-to-End Encryption: Ephemeral X25519 Elliptic-Curve Diffie-Hellman combined with SHA-256 HKDF and AES-256-GCM authenticated encryption.\n" +
                        "• Reverse Loopback Bridge: TightVNC Server is strictly isolated from the external network and commanded over loopback, preventing unauthorized external exposure.\n\n" +
                        "TightVNC License Compliance Notice:\n" +
-                       "VNC Remote Connect integrates with TightVNC 2.8.90, distributed under the GNU General Public License (GPL v2). Upstream copyright belongs to GlavSoft LLC and original authors. Full source code, build scripts, and license texts are included in this distribution in accordance with GPL v2 Section 3.",
+                       "asynchronous integrates with TightVNC 2.8.90, distributed under the GNU General Public License (GPL v2). Upstream copyright belongs to GlavSoft LLC and original authors. Full source code, build scripts, and license texts are included in this distribution in accordance with GPL v2 Section 3.",
                 FontSize = 12,
                 Foreground = TextMuted,
                 TextWrapping = TextWrapping.Wrap,
@@ -934,6 +1074,98 @@ namespace VNCRemoteConnect
             card.Child = stack;
             grid.Children.Add(card);
             return grid;
+        }
+
+        // ===================================================================
+        // AUTOMATIC & MANUAL UPDATE CHECKER
+        // ===================================================================
+        private void CheckForUpdatesAsync(bool isManualCheck)
+        {
+            Task.Factory.StartNew(() =>
+            {
+                try
+                {
+                    // Support TLS 1.2 for GitHub API on .NET 4.x
+                    ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
+
+                    string apiUrl = "https://api.github.com/repos/" + GitHubRepo + "/releases/latest";
+                    var req = (HttpWebRequest)WebRequest.Create(apiUrl);
+                    req.UserAgent = "asynchronous-desktop-app";
+                    req.Timeout = 7000;
+
+                    using (var resp = req.GetResponse())
+                    using (var stream = resp.GetResponseStream())
+                    using (var reader = new StreamReader(stream, Encoding.UTF8))
+                    {
+                        string jsonText = reader.ReadToEnd();
+                        var dict = json.Deserialize<System.Collections.Generic.Dictionary<string, object>>(jsonText);
+                        if (dict != null && dict.ContainsKey("tag_name"))
+                        {
+                            string tagName = dict["tag_name"].ToString().Trim();
+                            string cleanVer = tagName.TrimStart('v', 'V');
+                            string releaseUrl = dict.ContainsKey("html_url") ? dict["html_url"].ToString() : "https://github.com/" + GitHubRepo + "/releases";
+
+                            if (IsNewerVersion(cleanVer, CurrentVersion))
+                            {
+                                Dispatcher.Invoke(new Action(() =>
+                                {
+                                    latestReleaseDownloadUrl = releaseUrl;
+                                    txtUpdateBanner.Text = string.Format("🎉 New version available: asynchronous v{0}! (Your current version remains fully compatible to connect)", cleanVer);
+                                    updateBanner.Visibility = Visibility.Visible;
+
+                                    if (isManualCheck)
+                                    {
+                                        txtManualUpdateResult.Text = string.Format("🎉 A new update (v{0}) is available! Click 'Download Update' above.", cleanVer);
+                                        txtManualUpdateResult.Foreground = EmeraldGreen;
+                                    }
+                                }));
+                            }
+                            else if (isManualCheck)
+                            {
+                                Dispatcher.Invoke(new Action(() =>
+                                {
+                                    txtManualUpdateResult.Text = "✅ You are running the latest version of asynchronous (v" + CurrentVersion + ").";
+                                    txtManualUpdateResult.Foreground = EmeraldGreen;
+                                }));
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (isManualCheck)
+                    {
+                        Dispatcher.Invoke(new Action(() =>
+                        {
+                            txtManualUpdateResult.Text = "Could not reach update server: " + ex.Message;
+                            txtManualUpdateResult.Foreground = AmberYellow;
+                        }));
+                    }
+                }
+            });
+        }
+
+        private bool IsNewerVersion(string remoteVersion, string localVersion)
+        {
+            try
+            {
+                var rParts = remoteVersion.Split('.');
+                var lParts = localVersion.Split('.');
+                int len = Math.Max(rParts.Length, lParts.Length);
+
+                for (int i = 0; i < len; i++)
+                {
+                    int r = i < rParts.Length ? int.Parse(rParts[i]) : 0;
+                    int l = i < lParts.Length ? int.Parse(lParts[i]) : 0;
+                    if (r > l) return true;
+                    if (r < l) return false;
+                }
+                return false;
+            }
+            catch
+            {
+                return string.Compare(remoteVersion, localVersion, StringComparison.OrdinalIgnoreCase) > 0;
+            }
         }
 
         // ===================================================================
@@ -974,7 +1206,7 @@ namespace VNCRemoteConnect
             var footerGrid = new Grid() { Background = HeaderBrush };
             var text = new TextBlock()
             {
-                Text = "VNC Remote Connect v1.0.0 • 256-bit AES-GCM • GPL v2 Licensed • Native Windows",
+                Text = "asynchronous v" + CurrentVersion + " • 256-bit AES-GCM • GPL v2 Licensed • Native Windows",
                 FontSize = 11,
                 Foreground = TextDim,
                 HorizontalAlignment = HorizontalAlignment.Center,

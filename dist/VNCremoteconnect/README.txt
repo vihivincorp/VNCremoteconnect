@@ -1,18 +1,21 @@
 ﻿===============================================================================
-  VNC REMOTE CONNECT - Windows Remote Desktop Application (v1.0.0)
+  asynchronous - Windows Remote Desktop Application (v1.0.0)
 ===============================================================================
 
-VNC Remote Connect enables secure, lightweight remote desktop connections across
+asynchronous enables secure, lightweight remote desktop connections across
 different networks, firewalls, and college Wi-Fi without manual port forwarding.
 
 KEY FEATURES:
-- Zero-Knowledge Relay Architecture: Relay transfers opaque ciphertext frames.
+- Permanent Unattended Access: Permanent unique 9-digit Device ID and Password.
+- Automatic Hosting: Immediately online on launch with zero sharing prompts.
+- Seamless Reconnect: Reconnect anytime with the exact same ID and Password.
+- Cross-Version Compatible: Connect between older and newer versions seamlessly.
 - Authenticated End-to-End Encryption: X25519 ECDH + SHA-256 HKDF + AES-256-GCM.
-- TightVNC Engine Integration: Maximum performance, low bandwidth consumption.
-- Native Windows GUI: No Electron bloat, instantaneous launch.
+- TightVNC Engine Integration: Hardware-accelerated, low bandwidth consumption.
+- Native Windows GUI: Process name 'asynchronous', instantaneous launch.
 
 QUICK START:
-1. Run 'VNCremoteconnect.exe' or 'Start-VNCremoteconnect.bat'.
+1. Run 'asynchronous.exe' or 'Start-asynchronous.bat'.
 2. PERMANENT UNATTENDED ACCESS:
    - When opened, the app assigns you a permanent Unique Device ID and Password.
    - Hosting is AUTOMATICALLY ONLINE. No need to click 'Start Sharing' or confirm popups.
@@ -26,5 +29,4 @@ TIGHTVNC GPL v2 NOTICE:
 This software integrates and redistributes components of TightVNC 2.8.90
 under the GNU General Public License version 2 (GPL v2).
 Upstream Copyright (C) GlavSoft LLC and original TightVNC contributors.
-Source code archive is available in the repository root.
 ===============================================================================

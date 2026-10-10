@@ -1,9 +1,9 @@
-# VNC Remote Connect (VNCremoteconnect)
+# asynchronous (VNCremoteconnect)
 
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 [![Platform: Windows](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6.svg)](https://microsoft.com/windows)
 [![Security: AES-256-GCM](https://img.shields.io/badge/Security-AES--256--GCM%20%2B%20X25519-success.svg)]()
-[![UI: Native WPF](https://img.shields.io/badge/UI-Native%20WPF%20(37%20KB)-indigo.svg)]()
+[![Process: asynchronous.exe](https://img.shields.io/badge/Process-asynchronous.exe-indigo.svg)]()
 
 > **High-speed, end-to-end encrypted remote desktop control for Windows.**  
 > Powered by the **TightVNC 2.8.90** engine, modern **X25519 + AES-256-GCM** authenticated encryption, and a **zero-knowledge TLS relay** that effortlessly traverses campus firewalls, CGNAT, and college Wi-Fi networks without requiring port forwarding.
@@ -12,11 +12,13 @@
 
 ## 🌟 Highlights
 
-- **🔒 Authenticated End-to-End Encryption (E2EE):** Ephemeral X25519 Elliptic-Curve Diffie-Hellman key exchange, SHA-256 HKDF directional key derivation, and AES-256-GCM AEAD encryption. The relay operator or campus network eavesdropper cannot see your screen or keystrokes.
+- **🔒 Authenticated End-to-End Encryption (E2EE):** Ephemeral X25519 Elliptic-Curve Diffie-Hellman key exchange, SHA-256 HKDF directional key derivation, and AES-256-GCM AEAD encryption.
+- **⚡ Process Name 'asynchronous':** Running process in Windows Task Manager is cleanly named `asynchronous.exe` / `asynchronous`.
+- **🔄 Cross-Version Compatibility & Auto-Update Notifications:** The app automatically checks for new releases on GitHub and shows an update notification banner without ever breaking or blocking connections between older and newer versions.
+- **🔑 Permanent Unattended Access:** Each laptop maintains a permanent Unique Device ID and permanent Password. Hosting is active by default with zero confirmation popups.
 - **🌐 Seamless NAT & Firewall Traversal:** Both host and viewer establish standard outbound TLS connections on ports 8443 and 8444. Works cleanly across college Wi-Fi, cellular hotspots, and restrictive routers.
-- **⚡ Ultra-Lightweight Native Windows GUI:** Built with native WPF and hardware-accelerated DirectX rendering. Executable size is only **37 KB** with sub-second launch times (no Electron bloat).
-- **🛡️ Secure Reverse Loopback Bridge:** Keeps TightVNC Server strictly isolated from the external network and uses TightVNC's reverse loopback connection (`tvnserver -controlservice -connect`), bypassing administrative loopback registry blocks without opening inbound ports.
-- **📦 Zero-Setup Portable Releases:** Available as a 0.95 MB lightweight zip and a 32 MB standalone self-contained distribution with portable runtime included.
+- **🛡️ Secure Reverse Loopback Bridge:** Keeps TightVNC Server strictly isolated from the external network and uses TightVNC's reverse loopback connection (`tvnserver -controlservice -connect`).
+- **📦 Zero-Setup Portable Releases:** Available as a 0.96 MB lightweight zip and a 32 MB standalone self-contained distribution with portable runtime included.
 
 ---
 
@@ -25,18 +27,18 @@
 ### 1. Launching the App
 Simply run the included root launcher:
 ```powershell
-.\Launch-VNCremoteconnect.bat
+.\Launch-asynchronous.bat
 ```
 or open:
 ```
-dist\VNCremoteconnect\VNCremoteconnect.exe
+dist\asynchronous\asynchronous.exe
 ```
 
 ---
 
 ### 2. Permanent Unattended Access (Host / This PC)
-1. In the VNC Remote Connect window, select the **💻 This PC (Host)** tab.
-2. The app automatically assigns a **Permanent Device ID** and **Permanent Password** for this laptop (saved permanently in `settings.json`).
+1. In the **asynchronous** window, select the **💻 This PC (Host)** tab.
+2. The app automatically assigns a **Permanent Device ID** and **Permanent Password** for this laptop (saved in `%APPDATA%\asynchronous\settings.json`).
 3. Hosting is **🟢 AUTOMATICALLY ONLINE** on startup.
 4. Remote partners connect directly using this ID and Password — **no manual confirmation popups or "Start Sharing" clicks required**.
 5. You can copy your ID and Password with one click, or change/customize your password anytime.
@@ -44,7 +46,7 @@ dist\VNCremoteconnect\VNCremoteconnect.exe
 ---
 
 ### 3. How to Connect & Reconnect (Viewer)
-1. Open VNC Remote Connect and select the **🔗 Connect to Remote (Viewer)** tab.
+1. Open **asynchronous** and select the **🔗 Connect to Remote (Viewer)** tab.
 2. Enter your partner's **Permanent Device ID** and **Permanent Password**.
 3. Choose your connection profile:
    - **⚡ Fast (Optimized for College Wi-Fi / Low Bandwidth):** Tight encoding, level 7, JPEG quality 6.
@@ -60,7 +62,7 @@ dist\VNCremoteconnect\VNCremoteconnect.exe
 To test across separate networks:
 1. Connect **PC A (Host)** to your home Wi-Fi.
 2. Connect **PC B (Viewer)** to your mobile phone hotspot or college Wi-Fi.
-3. On the **⚙️ Relay & Network** tab, ensure the Relay Host points to your accessible relay server IP (or run the built-in relay on a machine with public/accessible IP).
+3. On the **⚙️ Relay & Network** tab, ensure the Relay Host points to your accessible relay server IP.
 4. Click **⚡ Test Relay Connection (Ping)** to verify latency and TLS handshake.
 5. Initiate the connection from PC B to PC A.
 
@@ -72,10 +74,10 @@ Downloads are hosted on GitHub's global edge CDN for instant, maximum-speed down
 
 | Package | Size | Download Link | Description |
 | :--- | :---: | :---: | :--- |
-| **⚡ Lightweight Package** | **0.95 MB** | [⬇️ **Download Lightweight ZIP (0.95 MB)**](https://github.com/vihivincorp/VNCremoteconnect/releases/download/v1.0.0/VNCremoteconnect-v1.0.0-Lightweight.zip) | **Fastest (< 1 second download).** Ultra-compact package containing native `VNCremoteconnect.exe`, E2EE engine, and TightVNC binaries. |
-| **🚀 Standalone Package** | **32.0 MB** | [⬇️ **Download Standalone ZIP (32 MB)**](https://github.com/vihivincorp/VNCremoteconnect/releases/download/v1.0.0/VNCremoteconnect-v1.0.0-Standalone-with-Runtime.zip) | **Zero prerequisites.** Bundles portable runtime, native UI, and TightVNC. Just unzip and run on any Windows 10/11 machine. |
+| **⚡ Lightweight Package** | **0.96 MB** | [⬇️ **Download Lightweight ZIP (0.96 MB)**](https://github.com/vihivincorp/VNCremoteconnect/releases/download/v1.0.0/asynchronous-v1.0.0-Lightweight.zip) | **Fastest (< 1 second download).** Ultra-compact package containing native `asynchronous.exe`, E2EE engine, and TightVNC binaries. |
+| **🚀 Standalone Package** | **32.0 MB** | [⬇️ **Download Standalone ZIP (32 MB)**](https://github.com/vihivincorp/VNCremoteconnect/releases/download/v1.0.0/asynchronous-v1.0.0-Standalone-with-Runtime.zip) | **Zero prerequisites.** Bundles portable runtime, native UI, and TightVNC. Just unzip and run on any Windows 10/11 machine. |
 
-> 💡 **Tip for Slow Networks / College Wi-Fi:** Choose the **0.95 MB Lightweight Package**. It is under 1 MB and downloads virtually instantaneously even on weak mobile connections.
+> 💡 **Tip for Slow Networks / College Wi-Fi:** Choose the **0.96 MB Lightweight Package**. It is under 1 MB and downloads virtually instantaneously even on weak mobile connections.
 
 ---
 

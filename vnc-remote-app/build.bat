@@ -1,7 +1,7 @@
 @echo off
 setlocal
 echo =========================================================
-echo   Compiling VNC Remote Connect Native Desktop App
+echo   Compiling asynchronous Native Desktop Application
 echo =========================================================
 
 set CSC="C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
@@ -21,12 +21,12 @@ echo Using C# Compiler: %CSC%
     /r:System.dll ^
     /r:System.Core.dll ^
     /r:System.Web.Extensions.dll ^
-    /out:"bin\VNCremoteconnect.exe" ^
+    /out:"bin\asynchronous.exe" ^
     "src\MainWindow.cs"
 
 if %ERRORLEVEL% equ 0 (
-    echo [SUCCESS] VNCremoteconnect.exe compiled successfully!
-    dir bin\VNCremoteconnect.exe
+    echo [SUCCESS] asynchronous.exe compiled successfully!
+    dir bin\asynchronous.exe
 ) else (
     echo [FAILED] Compilation failed with error code %ERRORLEVEL%
 )
