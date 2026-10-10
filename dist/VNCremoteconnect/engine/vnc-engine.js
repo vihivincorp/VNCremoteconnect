@@ -1,4 +1,4 @@
-// MSK Remote - Core Unified Engine
+﻿// VNC Remote Connect - Core Unified Engine
 //
 // Supports Host Mode, Viewer Mode, Relay Mode, and Relay Ping.
 // Offers both human-readable console output and structured --ipc mode.
@@ -11,7 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawn, exec } = require('child_process');
 const crypto = require('crypto');
-const { generateSessionKeyPair, deriveSessionKeys, E2eeEncryptor, E2eeDecryptor } = require('./msk-e2ee.js');
+const { generateSessionKeyPair, deriveSessionKeys, E2eeEncryptor, E2eeDecryptor } = require('./vnc-e2ee.js');
 
 // ---------------------------------------------------------------------------
 // Command-line Argument Parsing
@@ -102,10 +102,10 @@ function findTightVncServer() {
 // 1. RELAY SERVER MODE
 // ---------------------------------------------------------------------------
 function runRelay() {
-  const controlPort = parseInt(getArg('--control-port', process.env.MSK_CONTROL_PORT || '8443'), 10);
-  const relayPort = parseInt(getArg('--relay-port', process.env.MSK_RELAY_PORT || '8444'), 10);
-  const pfxPath = getArg('--pfx', process.env.MSK_PFX_PATH || path.join(__dirname, 'relay.pfx'));
-  const pfxPass = getArg('--pfx-pass', process.env.MSK_PFX_PASS || 'mskpassword');
+  const controlPort = parseInt(getArg('--control-port', process.env.VNC_CONTROL_PORT || '8443'), 10);
+  const relayPort = parseInt(getArg('--relay-port', process.env.VNC_RELAY_PORT || '8444'), 10);
+  const pfxPath = getArg('--pfx', process.env.VNC_PFX_PATH || path.join(__dirname, 'relay.pfx'));
+  const pfxPass = getArg('--pfx-pass', process.env.VNC_PFX_PASS || 'vncpassword');
 
   const registeredHosts = new Map();
   const activeSessions = new Map();
@@ -337,11 +337,11 @@ function runRelay() {
 // 2. HOST MODE
 // ---------------------------------------------------------------------------
 function runHost() {
-  const relayHost = getArg('--relay', process.env.MSK_SERVER_HOST || '127.0.0.1');
-  const controlPort = parseInt(getArg('--control-port', process.env.MSK_CONTROL_PORT || '8443'), 10);
-  const desiredId = getArg('--device-id', process.env.MSK_DEVICE_ID || null);
-  const sessionPin = getArg('--pin', process.env.MSK_SESSION_PIN || '123456');
-  const useTls = !noTls && (process.env.MSK_USE_TLS !== '0');
+  const relayHost = getArg('--relay', process.env.VNC_SERVER_HOST || '127.0.0.1');
+  const controlPort = parseInt(getArg('--control-port', process.env.VNC_CONTROL_PORT || '8443'), 10);
+  const desiredId = getArg('--device-id', process.env.VNC_DEVICE_ID || null);
+  const sessionPin = getArg('--pin', process.env.VNC_SESSION_PIN || '123456');
+  const useTls = !noTls && (process.env.VNC_USE_TLS !== '0');
 
   let assignedDeviceId = null;
   let relayPort = 8444;
@@ -518,13 +518,13 @@ function runHost() {
 // 3. VIEWER MODE
 // ---------------------------------------------------------------------------
 function runViewer() {
-  const relayHost = getArg('--relay', process.env.MSK_SERVER_HOST || '127.0.0.1');
-  const controlPort = parseInt(getArg('--control-port', process.env.MSK_CONTROL_PORT || '8443'), 10);
-  const targetId = getArg('--target', process.env.MSK_TARGET_DEVICE_ID || '');
-  const sessionPin = getArg('--pin', process.env.MSK_SESSION_PIN || '');
+  const relayHost = getArg('--relay', process.env.VNC_SERVER_HOST || '127.0.0.1');
+  const controlPort = parseInt(getArg('--control-port', process.env.VNC_CONTROL_PORT || '8443'), 10);
+  const targetId = getArg('--target', process.env.VNC_TARGET_DEVICE_ID || '');
+  const sessionPin = getArg('--pin', process.env.VNC_SESSION_PIN || '');
   const autoLaunch = !args.includes('--no-launch');
   const quality = getArg('--quality', 'balanced'); // fast, balanced, best
-  const useTls = !noTls && (process.env.MSK_USE_TLS !== '0');
+  const useTls = !noTls && (process.env.VNC_USE_TLS !== '0');
 
   if (!targetId || !sessionPin) {
     emitEvent('ERROR', { message: 'Target Device ID and Session PIN are required' });
@@ -748,11 +748,12 @@ switch (command) {
     runPing();
     break;
   default:
-    console.log(`MSK Remote Core Engine`);
+    console.log(`VNC Remote Connect Core Engine`);
     console.log(`Usage:`);
-    console.log(`  node msk-engine.js relay  [--control-port 8443] [--relay-port 8444] [--pfx path]`);
-    console.log(`  node msk-engine.js host   [--relay host] [--control-port 8443] [--pin 123456] [--device-id id]`);
-    console.log(`  node msk-engine.js viewer [--relay host] [--control-port 8443] --target id --pin 123456 [--quality fast|balanced|best]`);
-    console.log(`  node msk-engine.js ping   --relay host [--control-port 8443]`);
+    console.log(`  node vnc-engine.js relay  [--control-port 8443] [--relay-port 8444] [--pfx path]`);
+    console.log(`  node vnc-engine.js host   [--relay host] [--control-port 8443] [--pin 123456] [--device-id id]`);
+    console.log(`  node vnc-engine.js viewer [--relay host] [--control-port 8443] --target id --pin 123456 [--quality fast|balanced|best]`);
+    console.log(`  node vnc-engine.js ping   --relay host [--control-port 8443]`);
     break;
 }
+

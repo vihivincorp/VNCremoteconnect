@@ -1,4 +1,4 @@
-// MSK Remote - Host Bridge Agent
+﻿// VNC Remote Connect - Host Bridge Agent
 //
 // Features:
 // 1. Outbound TLS/TCP connection to Rendezvous / Relay Server
@@ -10,18 +10,18 @@
 const tls = require('tls');
 const net = require('net');
 const os = require('os');
-const { generateSessionKeyPair, deriveSessionKeys, E2eeEncryptor, E2eeDecryptor } = require('./msk-e2ee.js');
+const { generateSessionKeyPair, deriveSessionKeys, E2eeEncryptor, E2eeDecryptor } = require('./vnc-e2ee.js');
 
-const RENDEZVOUS_HOST = process.env.MSK_SERVER_HOST || '127.0.0.1';
-const RENDEZVOUS_PORT = parseInt(process.env.MSK_CONTROL_PORT || '8443', 10);
-const LOCAL_VNC_PORT = parseInt(process.env.MSK_LOCAL_VNC_PORT || '5900', 10);
-const DESIRED_DEVICE_ID = process.env.MSK_DEVICE_ID || null;
-const SESSION_PIN = process.env.MSK_SESSION_PIN || '123456';
-const USE_TLS = process.env.MSK_USE_TLS !== '0';
+const RENDEZVOUS_HOST = process.env.VNC_SERVER_HOST || '127.0.0.1';
+const RENDEZVOUS_PORT = parseInt(process.env.VNC_CONTROL_PORT || '8443', 10);
+const LOCAL_VNC_PORT = parseInt(process.env.VNC_LOCAL_VNC_PORT || '5900', 10);
+const DESIRED_DEVICE_ID = process.env.VNC_DEVICE_ID || null;
+const SESSION_PIN = process.env.VNC_SESSION_PIN || '123456';
+const USE_TLS = process.env.VNC_USE_TLS !== '0';
 
 function log(msg) {
   const ts = new Date().toISOString().split('T')[1].slice(0, 8);
-  console.log(`[${ts}] [MSK Host] ${msg}`);
+  console.log(`[${ts}] [VNC Host] ${msg}`);
 }
 
 function connectTransport(port, host, onConnect) {
@@ -36,7 +36,7 @@ function connectTransport(port, host, onConnect) {
   }
 }
 
-log(`Starting MSK Remote Host Agent...`);
+log(`Starting VNC Remote Connect Host Agent...`);
 log(`Target Local VNC Service: 127.0.0.1:${LOCAL_VNC_PORT}`);
 log(`Authorized Session PIN:   ${SESSION_PIN}`);
 
@@ -79,7 +79,7 @@ function handleControlMessage(msg) {
       assignedDeviceId = msg.deviceId;
       relayPort = msg.relayPort || 8444;
       console.log('\n======================================================');
-      console.log(`  MSK REMOTE HOST ONLINE (E2EE SECURE)`);
+      console.log(`  VNC Remote Connect HOST ONLINE (E2EE SECURE)`);
       console.log(`  DEVICE ID:   ${assignedDeviceId}`);
       console.log(`  SESSION PIN: ${SESSION_PIN}`);
       console.log('======================================================\n');
@@ -246,4 +246,5 @@ controlSocket.on('close', () => {
 controlSocket.on('error', (err) => {
   log(`Control connection error: ${err.message}`);
 });
+
 

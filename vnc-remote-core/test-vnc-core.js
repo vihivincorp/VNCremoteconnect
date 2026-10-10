@@ -1,4 +1,4 @@
-// MSK Remote - Comprehensive E2EE Verification Test Suite
+// VNC Remote Connect - Comprehensive E2EE Verification Test Suite
 //
 // Tests:
 // 1. Private Relay with Native TLS Transport (relay.pfx)
@@ -31,7 +31,7 @@ async function sleep(ms) {
 
 async function run() {
   console.log('===============================================================');
-  console.log('   MSK REMOTE - FULL E2EE & TLS RELAY VERIFICATION TEST');
+  console.log('   VNC Remote Connect - FULL E2EE & TLS RELAY VERIFICATION TEST');
   console.log('===============================================================\n');
 
   // Step 1: Check if real TightVNC Server is available on 127.0.0.1:5900
@@ -64,15 +64,15 @@ async function run() {
     await new Promise(res => mockVncServer.listen(MOCK_VNC_PORT, '127.0.0.1', res));
   }
 
-  // Step 2: Start MSK Relay Server with TLS
+  // Step 2: Start VNC Relay Server with TLS
   log('Relay', `Starting Private Relay Server (TLS enabled) on ports ${CONTROL_PORT} / ${RELAY_PORT}...`);
-  const relayProc = spawn(process.execPath, [path.join(__dirname, 'msk-relay-server.js')], {
+  const relayProc = spawn(process.execPath, [path.join(__dirname, 'vnc-relay-server.js')], {
     env: {
       ...process.env,
-      MSK_CONTROL_PORT: CONTROL_PORT,
-      MSK_RELAY_PORT: RELAY_PORT,
-      MSK_PFX_PATH: path.join(__dirname, 'relay.pfx'),
-      MSK_PFX_PASS: 'mskpassword'
+      VNC_CONTROL_PORT: CONTROL_PORT,
+      VNC_RELAY_PORT: RELAY_PORT,
+      VNC_PFX_PATH: path.join(__dirname, 'relay.pfx'),
+      VNC_PFX_PASS: 'vncpassword'
     },
     stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -84,15 +84,15 @@ async function run() {
 
   // Step 3: Start Host Agent with E2EE
   log('HostAgent', `Starting Host Agent for Device [${TEST_DEVICE_ID}], PIN [${CORRECT_PIN}]...`);
-  const hostProc = spawn(process.execPath, [path.join(__dirname, 'msk-host-agent.js')], {
+  const hostProc = spawn(process.execPath, [path.join(__dirname, 'vnc-host-agent.js')], {
     env: {
       ...process.env,
-      MSK_SERVER_HOST: '127.0.0.1',
-      MSK_CONTROL_PORT: CONTROL_PORT,
-      MSK_DEVICE_ID: TEST_DEVICE_ID,
-      MSK_SESSION_PIN: CORRECT_PIN,
-      MSK_LOCAL_VNC_PORT: vncTestPort,
-      MSK_USE_TLS: '1'
+      VNC_SERVER_HOST: '127.0.0.1',
+      VNC_CONTROL_PORT: CONTROL_PORT,
+      VNC_DEVICE_ID: TEST_DEVICE_ID,
+      VNC_SESSION_PIN: CORRECT_PIN,
+      VNC_LOCAL_VNC_PORT: vncTestPort,
+      VNC_USE_TLS: '1'
     },
     stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -138,16 +138,16 @@ async function run() {
   let localTunnelPort = null;
 
   const viewerProc = spawn(process.execPath, [
-    path.join(__dirname, 'msk-viewer-agent.js'),
+    path.join(__dirname, 'vnc-viewer-agent.js'),
     TEST_DEVICE_ID,
     CORRECT_PIN
   ], {
     env: {
       ...process.env,
-      MSK_SERVER_HOST: '127.0.0.1',
-      MSK_CONTROL_PORT: CONTROL_PORT,
-      MSK_AUTO_LAUNCH: '0',
-      MSK_USE_TLS: '1'
+      VNC_SERVER_HOST: '127.0.0.1',
+      VNC_CONTROL_PORT: CONTROL_PORT,
+      VNC_AUTO_LAUNCH: '0',
+      VNC_USE_TLS: '1'
     },
     stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -182,7 +182,7 @@ async function run() {
 
   await new Promise((resolve) => {
     clientSocket.connect(localTunnelPort, '127.0.0.1', () => {
-      log('RFBTest', 'Connected to MSK local tunnel endpoint!');
+      log('RFBTest', 'Connected to VNC local tunnel endpoint!');
     });
 
     clientSocket.on('data', (chunk) => {
@@ -236,3 +236,4 @@ run().catch((err) => {
   console.error('Fatal test error:', err);
   process.exit(1);
 });
+

@@ -1,4 +1,4 @@
-# VNC Remote Connect Packaging Script
+﻿# VNC Remote Connect Packaging Script
 Write-Host "=========================================================" -ForegroundColor Cyan
 Write-Host "  Packaging VNC Remote Connect Application (Release)     " -ForegroundColor Cyan
 Write-Host "=========================================================" -ForegroundColor Cyan
@@ -52,9 +52,9 @@ New-Item -ItemType Directory -Path "$distDir\engine" -Force | Out-Null
 New-Item -ItemType Directory -Path "$distDir\vnc" -Force | Out-Null
 
 Copy-Item "$scriptDir\bin\VNCremoteconnect.exe" "$distDir\" -Force
-Copy-Item "$rootDir\msk-remote-poc\msk-engine.js" "$distDir\engine\" -Force
-Copy-Item "$rootDir\msk-remote-poc\msk-e2ee.js" "$distDir\engine\" -Force
-Copy-Item "$rootDir\msk-remote-poc\relay.pfx" "$distDir\engine\" -Force
+Copy-Item "$rootDir\vnc-remote-core\vnc-engine.js" "$distDir\engine\" -Force
+Copy-Item "$rootDir\vnc-remote-core\vnc-e2ee.js" "$distDir\engine\" -Force
+Copy-Item "$rootDir\vnc-remote-core\relay.pfx" "$distDir\engine\" -Force
 
 # Copy portable TightVNC binaries
 if (Test-Path "$rootDir\tightvnc-bin\vncviewer.exe") {
@@ -133,3 +133,4 @@ Write-Host "  Lightweight Package: $zipLight" -ForegroundColor White
 Write-Host "  Standalone Package:  $zipStandalone" -ForegroundColor White
 Write-Host "  Extracted App:       $distDir" -ForegroundColor White
 Write-Host "=========================================================" -ForegroundColor Cyan
+

@@ -1,4 +1,4 @@
-@echo off
+﻿@echo off
 setlocal
 echo =========================================================
 echo   Packaging VNC Remote Connect Application (Release)
@@ -24,9 +24,9 @@ echo Copying Application Binary...
 copy /y bin\VNCremoteconnect.exe "%DIST_DIR%\" >nul
 
 echo Copying E2EE Engine...
-copy /y "..\msk-remote-poc\msk-engine.js" "%DIST_DIR%\engine\" >nul
-copy /y "..\msk-remote-poc\msk-e2ee.js" "%DIST_DIR%\engine\" >nul
-copy /y "..\msk-remote-poc\relay.pfx" "%DIST_DIR%\engine\" >nul
+copy /y "..\vnc-remote-core\vnc-engine.js" "%DIST_DIR%\engine\" >nul
+copy /y "..\vnc-remote-core\vnc-e2ee.js" "%DIST_DIR%\engine\" >nul
+copy /y "..\vnc-remote-core\relay.pfx" "%DIST_DIR%\engine\" >nul
 
 echo Copying TightVNC Binaries (GPL v2)...
 if exist "..\tightvnc-bin\vncviewer.exe" (
@@ -104,3 +104,4 @@ echo App Directory:      %DIST_DIR%
 echo =========================================================
 
 endlocal
+

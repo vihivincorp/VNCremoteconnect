@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
@@ -1220,16 +1220,16 @@ namespace VNCRemoteConnect
 
         private string FindEngineScript()
         {
-            string local = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "engine", "msk-engine.js");
+            string local = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "engine", "vnc-engine.js");
             if (File.Exists(local)) return local;
 
-            string poc = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "msk-remote-poc", "msk-engine.js");
+            string poc = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "vnc-remote-core", "vnc-engine.js");
             if (File.Exists(poc)) return Path.GetFullPath(poc);
 
-            string sameDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "msk-engine.js");
+            string sameDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "vnc-engine.js");
             if (File.Exists(sameDir)) return sameDir;
 
-            return @"s:\gravity projects\VNC remote connect\msk-remote-poc\msk-engine.js";
+            return @"s:\gravity projects\VNC remote connect\vnc-remote-core\vnc-engine.js";
         }
 
         private void CleanupProcesses()
@@ -1251,3 +1251,4 @@ namespace VNCRemoteConnect
         }
     }
 }
+

@@ -1,4 +1,4 @@
-// MSK Remote - Private Rendezvous & Relay Server
+﻿// VNC Remote Connect - Private Rendezvous & Relay Server
 //
 // Features:
 // 1. Dual Transport: TLS Encrypted Transport (using relay.pfx) + plain TCP fallback
@@ -12,10 +12,10 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const CONTROL_PORT = parseInt(process.env.MSK_CONTROL_PORT || '8443', 10);
-const RELAY_PORT = parseInt(process.env.MSK_RELAY_PORT || '8444', 10);
-const PFX_PATH = process.env.MSK_PFX_PATH || path.join(__dirname, 'relay.pfx');
-const PFX_PASS = process.env.MSK_PFX_PASS || 'mskpassword';
+const CONTROL_PORT = parseInt(process.env.VNC_CONTROL_PORT || '8443', 10);
+const RELAY_PORT = parseInt(process.env.VNC_RELAY_PORT || '8444', 10);
+const PFX_PATH = process.env.VNC_PFX_PATH || path.join(__dirname, 'relay.pfx');
+const PFX_PASS = process.env.VNC_PFX_PASS || 'vncpassword';
 
 // In-memory registries
 const registeredHosts = new Map(); // deviceId -> { socket, hostname, registeredAt }
@@ -325,11 +325,11 @@ function generateDeviceId() {
 }
 
 controlServer.listen(CONTROL_PORT, () => {
-  log('Server', `MSK Rendezvous Control Server listening on port ${CONTROL_PORT}`);
+  log('Server', `VNC Rendezvous Control Server listening on port ${CONTROL_PORT}`);
 });
 
 relayServer.listen(RELAY_PORT, () => {
-  log('Server', `MSK Binary Relay Server listening on port ${RELAY_PORT}`);
+  log('Server', `VNC Binary Relay Server listening on port ${RELAY_PORT}`);
 });
 
 process.on('SIGINT', () => {
@@ -338,3 +338,4 @@ process.on('SIGINT', () => {
   relayServer.close();
   process.exit(0);
 });
+

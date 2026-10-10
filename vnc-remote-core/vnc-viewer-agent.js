@@ -1,4 +1,4 @@
-// MSK Remote - Viewer Bridge Agent
+﻿// VNC Remote Connect - Viewer Bridge Agent
 //
 // Features:
 // 1. Queries Host status by 9-digit Device ID
@@ -12,18 +12,18 @@ const net = require('net');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const { generateSessionKeyPair, deriveSessionKeys, E2eeEncryptor, E2eeDecryptor } = require('./msk-e2ee.js');
+const { generateSessionKeyPair, deriveSessionKeys, E2eeEncryptor, E2eeDecryptor } = require('./vnc-e2ee.js');
 
-const RENDEZVOUS_HOST = process.env.MSK_SERVER_HOST || '127.0.0.1';
-const RENDEZVOUS_PORT = parseInt(process.env.MSK_CONTROL_PORT || '8443', 10);
-const TARGET_DEVICE_ID = process.argv[2] || process.env.MSK_TARGET_DEVICE_ID || '888-123-456';
-const SESSION_PIN = process.argv[3] || process.env.MSK_SESSION_PIN || '123456';
-const AUTO_LAUNCH_VIEWER = process.env.MSK_AUTO_LAUNCH !== '0';
-const USE_TLS = process.env.MSK_USE_TLS !== '0';
+const RENDEZVOUS_HOST = process.env.VNC_SERVER_HOST || '127.0.0.1';
+const RENDEZVOUS_PORT = parseInt(process.env.VNC_CONTROL_PORT || '8443', 10);
+const TARGET_DEVICE_ID = process.argv[2] || process.env.VNC_TARGET_DEVICE_ID || '888-123-456';
+const SESSION_PIN = process.argv[3] || process.env.VNC_SESSION_PIN || '123456';
+const AUTO_LAUNCH_VIEWER = process.env.VNC_AUTO_LAUNCH !== '0';
+const USE_TLS = process.env.VNC_USE_TLS !== '0';
 
 function log(msg) {
   const ts = new Date().toISOString().split('T')[1].slice(0, 8);
-  console.log(`[${ts}] [MSK Viewer] ${msg}`);
+  console.log(`[${ts}] [VNC Viewer] ${msg}`);
 }
 
 function connectTransport(port, host, onConnect) {
@@ -38,7 +38,7 @@ function connectTransport(port, host, onConnect) {
   }
 }
 
-log(`Starting MSK Remote Viewer Agent...`);
+log(`Starting VNC Remote Connect Viewer Agent...`);
 log(`Target Device ID: ${TARGET_DEVICE_ID}`);
 log(`Using Session PIN: ${SESSION_PIN}`);
 
@@ -216,7 +216,7 @@ function setupLocalListener(relaySocket, sessionCrypto, leftover) {
   localServer.listen(0, '127.0.0.1', () => {
     const localPort = localServer.address().port;
     console.log('\n======================================================');
-    console.log(`  MSK REMOTE TUNNEL ESTABLISHED! (E2EE SECURE)`);
+    console.log(`  VNC Remote Connect TUNNEL ESTABLISHED! (E2EE SECURE)`);
     console.log(`  Local Endpoint: 127.0.0.1:${localPort}`);
     console.log('======================================================\n');
 
@@ -256,3 +256,4 @@ function setupLocalListener(relaySocket, sessionCrypto, leftover) {
 controlSocket.on('error', (err) => {
   log(`Control connection error: ${err.message}`);
 });
+

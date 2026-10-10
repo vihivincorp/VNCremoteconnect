@@ -1,11 +1,11 @@
-// End-to-End Release Test for dist/MSK-Remote
+﻿// End-to-End Release Test for dist/VNCremoteconnect
 const { spawn } = require('child_process');
 const path = require('path');
 
-const distDir = path.resolve(__dirname, '..', 'dist', 'MSK-Remote');
-const engineJs = path.join(distDir, 'engine', 'msk-engine.js');
+const distDir = path.resolve(__dirname, '..', 'dist', 'VNCremoteconnect');
+const engineJs = path.join(distDir, 'engine', 'vnc-engine.js');
 
-console.log('Testing MSK Remote Distribution Pipeline...');
+console.log('Testing VNC Remote Connect Distribution Pipeline...');
 console.log('Engine Path:', engineJs);
 
 // 1. Start Relay
@@ -80,3 +80,4 @@ setTimeout(() => {
   console.error('Test timed out after 15 seconds!');
   cleanupAndExit(1);
 }, 15000);
+

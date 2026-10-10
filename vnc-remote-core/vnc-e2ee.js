@@ -1,4 +1,4 @@
-// MSK Remote - End-to-End Encryption (E2EE) Module
+// VNC Remote Connect - End-to-End Encryption (E2EE) Module
 //
 // Uses X25519 Ephemeral Key Exchange + HKDF Key Derivation + AES-256-GCM AEAD Framing.
 // Native Node.js crypto standard library (zero external dependencies).
@@ -40,8 +40,8 @@ function deriveSessionKeys(myPrivateKey, peerPublicKeyBase64, sessionPin, isHost
   const salt = crypto.createHash('sha256').update(String(sessionPin)).digest();
 
   // Directional 32-byte keys
-  const hostToViewerKey = crypto.hkdfSync('sha256', sharedSecret, salt, 'MSK_HOST_TO_VIEWER', 32);
-  const viewerToHostKey = crypto.hkdfSync('sha256', sharedSecret, salt, 'MSK_VIEWER_TO_HOST', 32);
+  const hostToViewerKey = crypto.hkdfSync('sha256', sharedSecret, salt, 'VNC_HOST_TO_VIEWER', 32);
+  const viewerToHostKey = crypto.hkdfSync('sha256', sharedSecret, salt, 'VNC_VIEWER_TO_HOST', 32);
 
   if (isHost) {
     return {

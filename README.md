@@ -120,13 +120,13 @@ sequenceDiagram
 You do not need Visual Studio installed. VNC Remote Connect compiles using the built-in Windows .NET Framework compiler `csc.exe`:
 
 ```powershell
-cd msk-remote-app
+cd vnc-remote-app
 .\build.bat
 ```
 
 To create both release zip archives:
 ```powershell
-cd msk-remote-app
+cd vnc-remote-app
 powershell -ExecutionPolicy Bypass -File package.ps1
 ```
 
