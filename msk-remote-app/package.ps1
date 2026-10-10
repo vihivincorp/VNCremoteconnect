@@ -1,16 +1,16 @@
-# MSK Remote Packaging Script
+# VNC Remote Connect Packaging Script
 Write-Host "=========================================================" -ForegroundColor Cyan
-Write-Host "  Packaging MSK Remote Desktop Application (Release)     " -ForegroundColor Cyan
+Write-Host "  Packaging VNC Remote Connect Application (Release)     " -ForegroundColor Cyan
 Write-Host "=========================================================" -ForegroundColor Cyan
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $rootDir = Resolve-Path "$scriptDir\.."
-$distDir = "$rootDir\dist\MSK-Remote"
-$standaloneDir = "$rootDir\dist\MSK-Remote-Standalone"
-$zipLight = "$rootDir\dist\MSK-Remote-v1.0.0-Lightweight.zip"
-$zipStandalone = "$rootDir\dist\MSK-Remote-v1.0.0-Standalone-with-Runtime.zip"
+$distDir = "$rootDir\dist\VNCremoteconnect"
+$standaloneDir = "$rootDir\dist\VNCremoteconnect-Standalone"
+$zipLight = "$rootDir\dist\VNCremoteconnect-v1.0.0-Lightweight.zip"
+$zipStandalone = "$rootDir\dist\VNCremoteconnect-v1.0.0-Standalone-with-Runtime.zip"
 
-# 1. Compile MSKRemote.exe
+# 1. Compile VNCremoteconnect.exe
 $csc = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
 if (-not (Test-Path $csc)) {
     $csc = "C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe"
@@ -20,7 +20,7 @@ if (-not (Test-Path "$scriptDir\bin")) {
     New-Item -ItemType Directory -Path "$scriptDir\bin" -Force | Out-Null
 }
 
-Write-Host "Compiling MSKRemote.exe..." -ForegroundColor Yellow
+Write-Host "Compiling VNCremoteconnect.exe..." -ForegroundColor Yellow
 $compileArgs = @(
     "/nologo",
     "/target:winexe",
@@ -34,7 +34,7 @@ $compileArgs = @(
     "/r:System.dll",
     "/r:System.Core.dll",
     "/r:System.Web.Extensions.dll",
-    "/out:$scriptDir\bin\MSKRemote.exe",
+    "/out:$scriptDir\bin\VNCremoteconnect.exe",
     "$scriptDir\src\MainWindow.cs"
 )
 
@@ -43,15 +43,15 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error "Compilation failed!"
     exit 1
 }
-Write-Host "[SUCCESS] MSKRemote.exe compiled successfully! ($((Get-Item "$scriptDir\bin\MSKRemote.exe").Length) bytes)" -ForegroundColor Green
+Write-Host "[SUCCESS] VNCremoteconnect.exe compiled successfully! ($((Get-Item "$scriptDir\bin\VNCremoteconnect.exe").Length) bytes)" -ForegroundColor Green
 
-# 2. Assemble MSK-Remote Directory
-Write-Host "Assembling MSK-Remote files..." -ForegroundColor Yellow
+# 2. Assemble VNCremoteconnect Directory
+Write-Host "Assembling VNCremoteconnect files..." -ForegroundColor Yellow
 if (Test-Path $distDir) { Remove-Item $distDir -Recurse -Force -ErrorAction SilentlyContinue }
 New-Item -ItemType Directory -Path "$distDir\engine" -Force | Out-Null
 New-Item -ItemType Directory -Path "$distDir\vnc" -Force | Out-Null
 
-Copy-Item "$scriptDir\bin\MSKRemote.exe" "$distDir\" -Force
+Copy-Item "$scriptDir\bin\VNCremoteconnect.exe" "$distDir\" -Force
 Copy-Item "$rootDir\msk-remote-poc\msk-engine.js" "$distDir\engine\" -Force
 Copy-Item "$rootDir\msk-remote-poc\msk-e2ee.js" "$distDir\engine\" -Force
 Copy-Item "$rootDir\msk-remote-poc\relay.pfx" "$distDir\engine\" -Force
@@ -70,16 +70,16 @@ if (Test-Path "C:\Program Files\TightVNC\tvnviewer.exe") {
 @"
 @echo off
 cd /d "%~dp0"
-start "" "MSKRemote.exe"
-"@ | Set-Content -Path "$distDir\Start-MSKRemote.bat" -Encoding ASCII
+start "" "VNCremoteconnect.exe"
+"@ | Set-Content -Path "$distDir\Start-VNCremoteconnect.bat" -Encoding ASCII
 
 # Readme & License
 @"
 ===============================================================================
-  MSK REMOTE - Windows Remote Desktop Application (v1.0.0)
+  VNC REMOTE CONNECT - Windows Remote Desktop Application (v1.0.0)
 ===============================================================================
 
-MSK Remote enables secure, lightweight remote desktop connections across
+VNC Remote Connect enables secure, lightweight remote desktop connections across
 different networks, firewalls, and college Wi-Fi without manual port forwarding.
 
 KEY FEATURES:
@@ -89,7 +89,7 @@ KEY FEATURES:
 - Native Windows GUI: No Electron bloat, instantaneous launch.
 
 QUICK START:
-1. Run 'MSKRemote.exe' or 'Start-MSKRemote.bat'.
+1. Run 'VNCremoteconnect.exe' or 'Start-VNCremoteconnect.bat'.
 2. TO SHARE SCREEN:
    - Click 'Start Sharing'.
    - Give your 9-digit Device ID and Session PIN to your partner.
@@ -128,7 +128,7 @@ if (Test-Path "C:\Program Files\nodejs\node.exe") {
 }
 
 Write-Host "`n=========================================================" -ForegroundColor Cyan
-Write-Host "  MSK REMOTE PACKAGING COMPLETE!                         " -ForegroundColor Cyan
+Write-Host "  VNC REMOTE CONNECT PACKAGING COMPLETE!                 " -ForegroundColor Cyan
 Write-Host "  Lightweight Package: $zipLight" -ForegroundColor White
 Write-Host "  Standalone Package:  $zipStandalone" -ForegroundColor White
 Write-Host "  Extracted App:       $distDir" -ForegroundColor White

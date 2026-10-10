@@ -1,7 +1,7 @@
 @echo off
 setlocal
 echo =========================================================
-echo   Compiling MSK Remote Native Desktop Application
+echo   Compiling VNC Remote Connect Native Desktop App
 echo =========================================================
 
 set CSC="C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
@@ -21,12 +21,12 @@ echo Using C# Compiler: %CSC%
     /r:System.dll ^
     /r:System.Core.dll ^
     /r:System.Web.Extensions.dll ^
-    /out:"bin\MSKRemote.exe" ^
+    /out:"bin\VNCremoteconnect.exe" ^
     "src\MainWindow.cs"
 
 if %ERRORLEVEL% equ 0 (
-    echo [SUCCESS] MSKRemote.exe compiled successfully!
-    dir bin\MSKRemote.exe
+    echo [SUCCESS] VNCremoteconnect.exe compiled successfully!
+    dir bin\VNCremoteconnect.exe
 ) else (
     echo [FAILED] Compilation failed with error code %ERRORLEVEL%
 )

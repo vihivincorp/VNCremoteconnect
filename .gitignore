@@ -3,8 +3,8 @@ node_modules/
 *.log
 
 # Large uncompressed runtime
-dist/MSK-Remote-Standalone/runtime/
-dist/MSK-Remote-Standalone/
+dist/*-Standalone/
+dist/*-Standalone/runtime/
 
 # Temporary and IDE files
 .vscode/

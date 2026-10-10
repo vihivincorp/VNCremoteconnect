@@ -16,7 +16,7 @@ using System.Windows.Threading;
 using Path = System.IO.Path;
 
 
-namespace MSKRemote
+namespace VNCRemoteConnect
 {
     public class MainWindow : Window
     {
@@ -83,7 +83,7 @@ namespace MSKRemote
 
         public MainWindow()
         {
-            this.Title = "MSK Remote - Secure Cross-Network Desktop";
+            this.Title = "VNC Remote Connect - Secure Cross-Network Desktop";
             this.Width = 860;
             this.Height = 640;
             this.MinWidth = 800;
@@ -98,6 +98,7 @@ namespace MSKRemote
             this.Closing += (s, e) => CleanupProcesses();
             CheckTightVncServerInstallation();
         }
+
 
         private void BuildUI()
         {
@@ -160,12 +161,12 @@ namespace MSKRemote
                 Padding = new Thickness(10, 4, 10, 4),
                 Margin = new Thickness(0, 0, 12, 0)
             };
-            var logoText = new TextBlock() { Text = "MSK", FontWeight = FontWeights.Bold, FontSize = 16, Foreground = TextWhite };
+            var logoText = new TextBlock() { Text = "VNC", FontWeight = FontWeights.Bold, FontSize = 16, Foreground = TextWhite };
             logoBadge.Child = logoText;
             brandStack.Children.Add(logoBadge);
 
             var titleStack = new StackPanel() { VerticalAlignment = VerticalAlignment.Center };
-            var title = new TextBlock() { Text = "MSK Remote", FontWeight = FontWeights.SemiBold, FontSize = 18, Foreground = TextWhite };
+            var title = new TextBlock() { Text = "VNC Remote Connect", FontWeight = FontWeights.SemiBold, FontSize = 18, Foreground = TextWhite };
             var subtitle = new TextBlock() { Text = "Cross-Network Desktop • Zero-Knowledge E2EE • TightVNC Engine", FontSize = 11, Foreground = TextMuted };
             titleStack.Children.Add(title);
             titleStack.Children.Add(subtitle);
@@ -440,7 +441,7 @@ namespace MSKRemote
                 IsReadOnly = true,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 TextWrapping = TextWrapping.Wrap,
-                Text = "MSK Remote Host Ready.\nConfigure PIN above and click 'Start Sharing' to connect.\n"
+                Text = "VNC Remote Connect Host Ready.\nConfigure PIN above and click 'Start Sharing' to connect.\n"
             };
             Grid.SetRow(txtHostLog, 1);
             rightStack.Children.Add(txtHostLog);
@@ -550,7 +551,7 @@ namespace MSKRemote
             };
             var tipText = new TextBlock()
             {
-                Text = "Once verified, MSK Remote establishes an authenticated E2EE tunnel and automatically launches TightVNC Viewer window.",
+                Text = "Once verified, VNC Remote Connect establishes an authenticated E2EE tunnel and automatically launches TightVNC Viewer window.",
                 FontSize = 11,
                 Foreground = EmeraldGreen,
                 TextWrapping = TextWrapping.Wrap
@@ -717,12 +718,12 @@ namespace MSKRemote
         private Grid CreateAboutPanel()
         {
             var grid = new Grid();
-            var card = CreateCard("About MSK Remote & Open-Source Compliance");
+            var card = CreateCard("About VNC Remote Connect & Open-Source Compliance");
             var stack = new StackPanel();
 
             var heading = new TextBlock()
             {
-                Text = "MSK Remote - Windows Remote Desktop Solution",
+                Text = "VNC Remote Connect - Windows Remote Desktop Solution",
                 FontSize = 16,
                 FontWeight = FontWeights.Bold,
                 Foreground = PrimaryIndigo,
@@ -732,13 +733,13 @@ namespace MSKRemote
 
             var desc = new TextBlock()
             {
-                Text = "MSK Remote is an open, private remote desktop system engineered for low-latency desktop control across NATs, firewalls, and campus networks without port forwarding.\n\n" +
+                Text = "VNC Remote Connect is an open, private remote desktop system engineered for low-latency desktop control across NATs, firewalls, and campus networks without port forwarding.\n\n" +
                        "Key Architectural Components:\n" +
                        "• Zero-Knowledge Relay Architecture: The rendezvous and relay servers act solely as blind byte conduits. They cannot inspect, record, or tamper with screen frames or input.\n" +
                        "• Authenticated End-to-End Encryption: Ephemeral X25519 Elliptic-Curve Diffie-Hellman combined with SHA-256 HKDF and AES-256-GCM authenticated encryption.\n" +
                        "• Reverse Loopback Bridge: TightVNC Server is strictly isolated from the external network and commanded over loopback, preventing unauthorized external exposure.\n\n" +
                        "TightVNC License Compliance Notice:\n" +
-                       "MSK Remote integrates with TightVNC 2.8.90, distributed under the GNU General Public License (GPL v2). Upstream copyright belongs to GlavSoft LLC and original authors. Full source code, build scripts, and license texts are included in this distribution in accordance with GPL v2 Section 3.",
+                       "VNC Remote Connect integrates with TightVNC 2.8.90, distributed under the GNU General Public License (GPL v2). Upstream copyright belongs to GlavSoft LLC and original authors. Full source code, build scripts, and license texts are included in this distribution in accordance with GPL v2 Section 3.",
                 FontSize = 12,
                 Foreground = TextMuted,
                 TextWrapping = TextWrapping.Wrap,
@@ -789,7 +790,7 @@ namespace MSKRemote
             var footerGrid = new Grid() { Background = HeaderBrush };
             var text = new TextBlock()
             {
-                Text = "MSK Remote v1.0.0 • 256-bit AES-GCM • GPL v2 Licensed • Native Windows",
+                Text = "VNC Remote Connect v1.0.0 • 256-bit AES-GCM • GPL v2 Licensed • Native Windows",
                 FontSize = 11,
                 Foreground = TextDim,
                 HorizontalAlignment = HorizontalAlignment.Center,

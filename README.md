@@ -1,4 +1,4 @@
-# MSK Remote (VNC Remote Connect)
+# VNC Remote Connect (VNCremoteconnect)
 
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 [![Platform: Windows](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6.svg)](https://microsoft.com/windows)
@@ -25,17 +25,17 @@
 ### 1. Launching the App
 Simply run the included root launcher:
 ```powershell
-.\Launch-MSKRemote.bat
+.\Launch-VNCremoteconnect.bat
 ```
 or open:
 ```
-dist\MSK-Remote\MSKRemote.exe
+dist\VNCremoteconnect\VNCremoteconnect.exe
 ```
 
 ---
 
 ### 2. How to Share Your Screen (Host)
-1. In the MSK Remote window, select the **💻 Share Screen (Host)** tab.
+1. In the VNC Remote Connect window, select the **💻 Share Screen (Host)** tab.
 2. Click **🟢 Start Sharing (Allow Connections)**.
 3. The app connects to the relay and generates:
    - **Your Device ID** (e.g., `888-123-456`)
@@ -45,7 +45,7 @@ dist\MSK-Remote\MSKRemote.exe
 ---
 
 ### 3. How to Connect to a Remote PC (Viewer)
-1. Open MSK Remote and select the **🔗 Connect to Remote (Viewer)** tab.
+1. Open VNC Remote Connect and select the **🔗 Connect to Remote (Viewer)** tab.
 2. Enter your partner's **Device ID** and **Session PIN**.
 3. Choose your connection profile:
    - **⚡ Fast (Optimized for College Wi-Fi / Low Bandwidth):** Tight encoding, level 7, JPEG quality 6.
@@ -72,11 +72,10 @@ Downloads are hosted on GitHub's global edge CDN for instant, maximum-speed down
 
 | Package | Size | Download Link | Description |
 | :--- | :---: | :---: | :--- |
-| **⚡ Lightweight Package** | **0.95 MB** | [⬇️ **Download Lightweight ZIP (0.95 MB)**](https://github.com/vihivincorp/VNCremoteconnect/releases/download/v1.0.0/MSK-Remote-v1.0.0-Lightweight.zip) | **Fastest (< 1 second download).** Ultra-compact package containing native `MSKRemote.exe`, E2EE engine, and TightVNC binaries. |
-| **🚀 Standalone Package** | **32.0 MB** | [⬇️ **Download Standalone ZIP (32 MB)**](https://github.com/vihivincorp/VNCremoteconnect/releases/download/v1.0.0/MSK-Remote-v1.0.0-Standalone-with-Runtime.zip) | **Zero prerequisites.** Bundles portable runtime, native UI, and TightVNC. Just unzip and run on any Windows 10/11 machine. |
+| **⚡ Lightweight Package** | **0.95 MB** | [⬇️ **Download Lightweight ZIP (0.95 MB)**](https://github.com/vihivincorp/VNCremoteconnect/releases/download/v1.0.0/VNCremoteconnect-v1.0.0-Lightweight.zip) | **Fastest (< 1 second download).** Ultra-compact package containing native `VNCremoteconnect.exe`, E2EE engine, and TightVNC binaries. |
+| **🚀 Standalone Package** | **32.0 MB** | [⬇️ **Download Standalone ZIP (32 MB)**](https://github.com/vihivincorp/VNCremoteconnect/releases/download/v1.0.0/VNCremoteconnect-v1.0.0-Standalone-with-Runtime.zip) | **Zero prerequisites.** Bundles portable runtime, native UI, and TightVNC. Just unzip and run on any Windows 10/11 machine. |
 
 > 💡 **Tip for Slow Networks / College Wi-Fi:** Choose the **0.95 MB Lightweight Package**. It is under 1 MB and downloads virtually instantaneously even on weak mobile connections.
-
 
 ---
 
@@ -84,9 +83,9 @@ Downloads are hosted on GitHub's global edge CDN for instant, maximum-speed down
 
 ```mermaid
 sequenceDiagram
-    participant Host as MSK Host (Alice)
+    participant Host as VNC Host (Alice)
     participant Relay as Rendezvous & Relay Server
-    participant Viewer as MSK Viewer (Bob)
+    participant Viewer as VNC Viewer (Bob)
 
     Note over Host, Relay: Outbound TLS (Port 8443)
     Note over Viewer, Relay: Outbound TLS (Port 8443)
@@ -118,7 +117,7 @@ sequenceDiagram
 
 ## 🛠️ Building From Source
 
-You do not need Visual Studio installed. MSK Remote compiles using the built-in Windows .NET Framework compiler `csc.exe`:
+You do not need Visual Studio installed. VNC Remote Connect compiles using the built-in Windows .NET Framework compiler `csc.exe`:
 
 ```powershell
 cd msk-remote-app
@@ -135,7 +134,7 @@ powershell -ExecutionPolicy Bypass -File package.ps1
 
 ## 📜 Licensing & Upstream Attribution
 
-- **TightVNC:** MSK Remote redistributes and interfaces with components of **TightVNC 2.8.90**, licensed under the **GNU General Public License v2 (GPL v2)**.
+- **TightVNC:** VNC Remote Connect redistributes and interfaces with components of **TightVNC 2.8.90**, licensed under the **GNU General Public License v2 (GPL v2)**.
 - Upstream Copyright © 1999–2024 GlavSoft LLC and original TightVNC contributors.
 - The complete upstream GPL source archive is included in [`tightvnc-2.8.90-src-gpl.zip`](tightvnc-2.8.90-src-gpl.zip) and extracted in [`tightvnc-2.8.90-gpl/`](tightvnc-2.8.90-gpl/) in compliance with GPL v2 Section 3.
-- Full license terms are documented in [`GPL-LICENSE.txt`](dist/MSK-Remote/GPL-LICENSE.txt).
+- Full license terms are documented in [`GPL-LICENSE.txt`](dist/VNCremoteconnect/GPL-LICENSE.txt).
