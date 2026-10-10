@@ -66,14 +66,17 @@ To test across separate networks:
 
 ---
 
-## 📦 Download Packages
+## 📥 High-Speed Download Packages (Global CDN)
 
-Pre-packaged releases are available in the [`dist/`](dist/) folder:
+Downloads are hosted on GitHub's global edge CDN for instant, maximum-speed downloads without throttling:
 
-| Package | Size | Description |
-| :--- | :---: | :--- |
-| **`dist/MSK-Remote-v1.0.0-Lightweight.zip`** | **0.95 MB** | Lightweight package containing native `MSKRemote.exe`, E2EE engine, and TightVNC portable binaries. |
-| **`dist/MSK-Remote-v1.0.0-Standalone-with-Runtime.zip`** | **32.0 MB** | 100% self-contained with bundled portable runtime. No prerequisites required on the target machine. |
+| Package | Size | Download Link | Description |
+| :--- | :---: | :---: | :--- |
+| **⚡ Lightweight Package** | **0.95 MB** | [⬇️ **Download Lightweight ZIP (0.95 MB)**](https://github.com/vihivincorp/VNCremoteconnect/releases/download/v1.0.0/MSK-Remote-v1.0.0-Lightweight.zip) | **Fastest (< 1 second download).** Ultra-compact package containing native `MSKRemote.exe`, E2EE engine, and TightVNC binaries. |
+| **🚀 Standalone Package** | **32.0 MB** | [⬇️ **Download Standalone ZIP (32 MB)**](https://github.com/vihivincorp/VNCremoteconnect/releases/download/v1.0.0/MSK-Remote-v1.0.0-Standalone-with-Runtime.zip) | **Zero prerequisites.** Bundles portable runtime, native UI, and TightVNC. Just unzip and run on any Windows 10/11 machine. |
+
+> 💡 **Tip for Slow Networks / College Wi-Fi:** Choose the **0.95 MB Lightweight Package**. It is under 1 MB and downloads virtually instantaneously even on weak mobile connections.
+
 
 ---
 
