@@ -1,0 +1,11 @@
+# Node & Build artifacts
+node_modules/
+*.log
+
+# Large uncompressed runtime
+dist/MSK-Remote-Standalone/runtime/
+dist/MSK-Remote-Standalone/
+
+# Temporary and IDE files
+.vscode/
+*.tmp
